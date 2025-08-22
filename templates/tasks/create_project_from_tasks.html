@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Create Project from Tasks · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <i class="fas fa-folder-plus text-emerald-600"></i>
+          Create Project from Tasks
+        </h1>
+        <p class="text-slate-600 mt-1">Group related tasks into a new project</p>
+      </div>
+      <a href="{% url 'dashboard' %}" class="text-slate-600 hover:text-slate-900">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Project Creation Form -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-edit text-sky-600"></i>
+        Project Details
+      </h2>
+      
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Project Name *</label>
+          <input type="text" name="project_name" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Enter project name...">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Select Tasks</label>
+          <div class="space-y-2 max-h-64 overflow-y-auto border border-slate-200 rounded-lg p-3">
+            {% for task in unassigned_tasks %}
+              <label class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer">
+                <input type="checkbox" name="task_ids" value="{{ task.id }}" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-slate-900 truncate">{{ task.title }}</span>
+                    <span class="priority-badge priority-{{ task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task.priority }}</span>
+                  </div>
+                  {% if task.due_at %}
+                    <div class="text-xs text-slate-500">Due {{ task.due_at|date:"M j, Y" }}</div>
+                  {% endif %}
+                </div>
+              </label>
+            {% empty %}
+              <div class="text-center py-4 text-slate-500">
+                <i class="fas fa-inbox text-xl mb-2"></i>
+                <p class="text-sm">No unassigned tasks found.</p>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="fas fa-folder-plus mr-2"></i>Create Project
+        </button>
+      </form>
+    </div>
+
+    <!-- Task Preview -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-tasks text-blue-600"></i>
+        Available Tasks
+      </h2>
+      
+      {% if unassigned_tasks %}
+        <div class="space-y-3">
+          {% for task in unassigned_tasks %}
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-slate-900 text-sm">{{ task.title }}</h3>
+                  {% if task.description %}
+                    <p class="text-xs text-slate-600 mt-1 line-clamp-2">{{ task.description }}</p>
+                  {% endif %}
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="priority-badge priority-{{ task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task.priority }}</span>
+                    {% if task.due_at %}
+                      <span class="text-xs text-slate-500">Due {{ task.due_at|date:"M j" }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 text-sm ml-2">
+                  <i class="fas fa-external-link-alt"></i>
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-8 text-slate-500">
+          <i class="fas fa-inbox text-2xl mb-2"></i>
+          <p class="text-sm">No unassigned tasks available.</p>
+          <p class="text-xs text-slate-400 mt-1">All tasks are already assigned to projects.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>
+{% endblock %}
+

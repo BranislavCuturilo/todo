@@ -1,0 +1,193 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Solo TODO{% endblock %}</title>
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <meta name="theme-color" content="#0ea5e9">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen text-slate-900">
+  <header class="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="/" class="text-xl font-bold text-sky-600 flex items-center gap-2">
+        <i class="fas fa-tasks"></i>
+        Solo TODO
+      </a>
+      <nav class="flex items-center gap-1 text-sm">
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/">
+          <i class="fas fa-home"></i> Dashboard
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/inbox/">
+          <i class="fas fa-inbox"></i> Inbox
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/today/">
+          <i class="fas fa-calendar-day"></i> Today
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/upcoming/">
+          <i class="fas fa-calendar-week"></i> Upcoming
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/done/">
+          <i class="fas fa-check-circle"></i> Done
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/projects/">
+          <i class="fas fa-folder"></i> Projects
+        </a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3">
+        {% if user.is_authenticated %}
+        <button onclick="openQuickAdd()" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <i class="fas fa-plus"></i> Quick Add
+        </button>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-600">{{ user.username }}</span>
+          <a href="{% url 'logout' %}" class="text-sm text-slate-600 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-100 transition-colors">
+            <i class="fas fa-sign-out-alt"></i>
+          </a>
+        </div>
+        {% else %}
+        <a href="{% url 'login' %}" class="text-sm text-sky-600 hover:text-sky-700 px-3 py-2 rounded-lg hover:bg-sky-50 transition-colors">
+          <i class="fas fa-sign-in-alt"></i> Login
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Quick Add Modal -->
+  <div id="quickAddModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-semibold">Quick Add Task</h2>
+        <button onclick="closeQuickAdd()" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <form method="post" action="{% url 'quick_add' %}" class="space-y-4">
+        {% csrf_token %}
+        
+        <!-- Task Title -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-heading mr-2"></i>Task Title *
+          </label>
+          <input name="title" id="quickAddTitle" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" 
+                 placeholder="Enter task title" required />
+        </div>
+
+        <!-- Project -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-folder mr-2"></i>Project
+          </label>
+          <select name="project" id="quickAddProject" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+            <option value="">No Project</option>
+            {% for project in projects %}
+              <option value="{{ project.id }}">{{ project.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Priority -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-flag mr-2"></i>Priority
+          </label>
+          <select name="priority" id="quickAddPriority" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+            <option value="3">P3 - Medium</option>
+            <option value="1">P1 - Critical</option>
+            <option value="2">P2 - High</option>
+            <option value="4">P4 - Low</option>
+            <option value="5">P5 - Minimal</option>
+          </select>
+        </div>
+
+        <!-- Due Date -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-calendar mr-2"></i>Due Date
+          </label>
+          <input type="datetime-local" name="due_at" id="quickAddDueDate" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" />
+        </div>
+
+        <!-- Estimate -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-clock mr-2"></i>Estimate (minutes)
+          </label>
+          <input type="number" name="estimate_minutes" id="quickAddEstimate" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" 
+                 placeholder="30" min="1" />
+        </div>
+
+        <!-- Tags -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-tags mr-2"></i>Tags
+          </label>
+          <input name="tags" id="quickAddTags" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" 
+                 placeholder="bug, feature, urgent (comma separated)" />
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-align-left mr-2"></i>Description
+          </label>
+          <textarea name="description" id="quickAddDescription" rows="3" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" 
+                    placeholder="Optional task description"></textarea>
+        </div>
+
+        <div class="flex gap-2 pt-4">
+          <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2">
+            <i class="fas fa-plus mr-2"></i>Add Task
+          </button>
+          <button type="button" onclick="closeQuickAdd()" class="px-6 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="{% static 'js/app.js' %}"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('{% static 'sw.js' %}');
+      });
+    }
+
+    function openQuickAdd() {
+      document.getElementById('quickAddModal').classList.remove('hidden');
+      document.getElementById('quickAddTitle').focus();
+    }
+
+    function closeQuickAdd() {
+      document.getElementById('quickAddModal').classList.add('hidden');
+    }
+
+    // Close modal on outside click
+    document.getElementById('quickAddModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeQuickAdd();
+      }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeQuickAdd();
+      }
+    });
+  </script>
+</body>
+</html> 

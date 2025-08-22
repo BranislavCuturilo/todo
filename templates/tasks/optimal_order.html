@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Optimal Task Order · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <i class="fas fa-sort-amount-down text-blue-600"></i>
+          Optimal Task Order
+        </h1>
+        <p class="text-slate-600 mt-1">AI-recommended sequence based on priorities, dependencies, and due dates</p>
+      </div>
+      <a href="{% url 'dashboard' %}" class="text-slate-600 hover:text-slate-900">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+    <div class="p-6 border-b border-slate-100">
+      <h2 class="text-xl font-semibold text-slate-900 flex items-center gap-2">
+        <i class="fas fa-list-ol text-blue-600"></i>
+        Recommended Sequence
+      </h2>
+    </div>
+
+    {% if optimal_tasks %}
+      <div class="p-6">
+        {% for task in optimal_tasks %}
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between">
+              <div class="flex items-start gap-4 flex-1">
+                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                  {{ forloop.counter }}
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start justify-between mb-2">
+                    <h3 class="font-medium text-slate-900">{{ task.title }}</h3>
+                    <div class="flex items-center gap-2 ml-4">
+                      <span class="priority-badge priority-{{ task.priority }} text-xs px-2 py-1 rounded">P{{ task.priority }}</span>
+                      <span class="text-xs text-slate-500">Score: {{ task.optimal_score }}</span>
+                    </div>
+                  </div>
+                  
+                  {% if task.project %}
+                    <div class="flex items-center gap-1 mb-2">
+                      <i class="fas fa-folder text-blue-600"></i>
+                      <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">{{ task.project.name }}</span>
+                    </div>
+                  {% endif %}
+                  
+                  {% if task.due_at %}
+                    <div class="flex items-center gap-1 text-sm text-slate-600">
+                      <i class="fas fa-calendar text-slate-500"></i>
+                      <span class="{% if task.due_at < now %}text-red-600 font-medium{% else %}text-slate-600{% endif %}">
+                        {{ task.due_at|date:"M j, Y" }}
+                      </span>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="flex items-center gap-2 ml-4">
+                <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 text-sm">
+                  <i class="fas fa-eye mr-1"></i>View
+                </a>
+                <button onclick="startFocusSession({{ task.id }})" class="text-emerald-600 hover:text-emerald-700 text-sm">
+                  <i class="fas fa-play mr-1"></i>Focus
+                </button>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="p-12 text-center">
+        <i class="fas fa-sort-amount-down text-4xl text-slate-300 mb-4"></i>
+        <h3 class="text-lg font-medium text-slate-900 mb-2">No tasks to optimize</h3>
+        <p class="text-slate-600 mb-6">Create some tasks to see the optimal order recommendations!</p>
+        
+        <a href="{% url 'task_create' %}" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+          <i class="fas fa-plus"></i>
+          Create Task
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+</style>
+
+<script>
+function startFocusSession(taskId) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/focus/start/';
+  
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  const kindInput = document.createElement('input');
+  kindInput.type = 'hidden';
+  kindInput.name = 'kind';
+  kindInput.value = 'work';
+  
+  const taskInput = document.createElement('input');
+  taskInput.type = 'hidden';
+  taskInput.name = 'task_id';
+  taskInput.value = taskId;
+  
+  form.appendChild(csrfInput);
+  form.appendChild(kindInput);
+  form.appendChild(taskInput);
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
+{% endblock %}
