@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}Task Mind Map · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <i class="fas fa-project-diagram text-purple-600"></i>
+          Task Mind Map
+        </h1>
+        <p class="text-slate-600 mt-1">Visualize task relationships and dependencies</p>
+      </div>
+      <a href="{% url 'dashboard' %}" class="text-slate-600 hover:text-slate-900">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+        <i class="fas fa-sitemap text-purple-600"></i>
+        Task Relationship Graph
+      </h2>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleView()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors">
+          <i class="fas fa-eye mr-1"></i>Toggle View
+        </button>
+      </div>
+    </div>
+
+    {% if task_graph %}
+      <div id="mind-map-container" class="relative min-h-96 border border-slate-200 rounded-lg p-4 bg-slate-50">
+        {% for task_id, task_data in task_graph.items %}
+          <div class="task-node absolute bg-white border-2 border-slate-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
+               data-task-id="{{ task_id }}" 
+               style="left: {{ forloop.counter0|add:1|multiply:150 }}px; top: {{ forloop.counter0|add:1|multiply:100 }}px; z-index: 10;">
+            <div class="text-center">
+              <h3 class="font-medium text-slate-900 text-sm mb-1">{{ task_data.task.title|truncatechars:20 }}</h3>
+              <span class="priority-badge priority-{{ task_data.task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task_data.task.priority }}</span>
+            </div>
+          </div>
+        {% endfor %}
+        
+        <!-- Relationship Lines -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;">
+          {% for task_id, task_data in task_graph.items %}
+            {% for rel in task_data.outgoing %}
+              <line x1="{{ forloop.parentloop.counter0|add:1|multiply:150|add:75 }}" 
+                    y1="{{ forloop.parentloop.counter0|add:1|multiply:100|add:40 }}" 
+                    x2="{{ forloop.counter0|add:1|multiply:150|add:75 }}" 
+                    y2="{{ forloop.counter0|add:1|multiply:100|add:40 }}" 
+                    stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowhead)"/>
+            {% endfor %}
+          {% endfor %}
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    {% else %}
+      <div class="text-center py-12 text-slate-500">
+        <i class="fas fa-project-diagram text-4xl mb-4"></i>
+        <h3 class="text-lg font-medium text-slate-900 mb-2">No task relationships</h3>
+        <p class="text-slate-600 mb-6">Create relationships between tasks to see the mind map visualization.</p>
+        
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors">
+          <i class="fas fa-plus"></i>
+          Create Relationships
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Task List with Relationships -->
+  {% if tasks %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-list text-blue-600"></i>
+        Task Details
+      </h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for task in tasks %}
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <div class="flex items-start justify-between mb-3">
+              <h3 class="font-medium text-slate-900 text-sm flex-1 pr-2">{{ task.title }}</h3>
+              <span class="priority-badge priority-{{ task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task.priority }}</span>
+            </div>
+            
+            {% if task.project %}
+              <div class="flex items-center gap-1 mb-2">
+                <i class="fas fa-folder text-blue-600 text-xs"></i>
+                <span class="text-xs text-blue-700">{{ task.project.name }}</span>
+              </div>
+            {% endif %}
+            
+            <!-- Relationships -->
+            {% if task_graph|get_item:task.id %}
+              {% with task_data=task_graph|get_item:task.id %}
+                {% if task_data.outgoing or task_data.incoming %}
+                  <div class="space-y-2">
+                    {% if task_data.outgoing %}
+                      <div>
+                        <h4 class="text-xs font-medium text-slate-700 mb-1">Outgoing:</h4>
+                        <div class="space-y-1">
+                          {% for rel in task_data.outgoing %}
+                            <div class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              {{ rel.get_relationship_type_display }} → {{ rel.to_task.title|truncatechars:15 }}
+                            </div>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    {% endif %}
+                    
+                    {% if task_data.incoming %}
+                      <div>
+                        <h4 class="text-xs font-medium text-slate-700 mb-1">Incoming:</h4>
+                        <div class="space-y-1">
+                          {% for rel in task_data.incoming %}
+                            <div class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                              {{ rel.from_task.title|truncatechars:15 }} → {{ rel.get_relationship_type_display }}
+                            </div>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+            
+            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200">
+              <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 text-xs">
+                <i class="fas fa-eye mr-1"></i>View
+              </a>
+              <a href="{% url 'task_relationships' task.id %}" class="text-purple-600 hover:text-purple-700 text-xs">
+                <i class="fas fa-link mr-1"></i>Relations
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+
+.task-node {
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.task-node:hover {
+  transform: scale(1.05);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+</style>
+
+<script>
+function toggleView() {
+  const container = document.getElementById('mind-map-container');
+  if (container) {
+    container.classList.toggle('hidden');
+  }
+}
+
+// Add click handlers for task nodes
+document.addEventListener('DOMContentLoaded', function() {
+  const taskNodes = document.querySelectorAll('.task-node');
+  taskNodes.forEach(function(node) {
+    node.addEventListener('click', function() {
+      const taskId = this.getAttribute('data-task-id');
+      if (taskId) {
+        window.location.href = `/tasks/${taskId}/`;
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
+

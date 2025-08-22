@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}{{ task.title }} · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- Task Header -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex-1">
+        <h1 class="text-2xl font-bold text-slate-900 mb-2">{{ task.title }}</h1>
+        <div class="flex items-center gap-3 text-sm text-slate-600">
+          <span class="priority-badge priority-{{ task.priority }} px-3 py-1 rounded-full font-medium">Priority {{ task.priority }}</span>
+          <span class="status-badge status-{{ task.status }} px-3 py-1 rounded-full font-medium">{{ task.get_status_display }}</span>
+          {% if task.project %}
+            <a href="{% url 'project_detail' task.project.slug %}" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors">
+              <i class="fas fa-folder mr-1"></i>{{ task.project.name }}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        {% if task.status != 'done' %}
+          <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="done" />
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+              <i class="fas fa-check"></i> Mark Done
+            </button>
+          </form>
+        {% else %}
+          <span class="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg flex items-center gap-2">
+            <i class="fas fa-check-circle"></i> Completed
+          </span>
+        {% endif %}
+        <a href="{% url 'task_edit' task.id %}" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <i class="fas fa-edit"></i> Edit
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="flex items-center gap-4 pt-4 border-t border-slate-200">
+      <button onclick="snoozeTask({{ task.id }})" class="text-slate-600 hover:text-slate-900 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors">
+        <i class="fas fa-clock"></i> Snooze
+      </button>
+      <a href="{% url 'task_relationships' task.id %}" class="text-purple-600 hover:text-purple-700 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-purple-50 transition-colors">
+        <i class="fas fa-link"></i> Relationships
+      </a>
+      <button onclick="startFocusSession({{ task.id }})" class="text-emerald-600 hover:text-emerald-700 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-emerald-50 transition-colors">
+        <i class="fas fa-play"></i> Start Focus
+      </button>
+      {% if task.external_url %}
+        <a href="{{ task.external_url }}" target="_blank" rel="noreferrer" class="text-sky-600 hover:text-sky-700 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-sky-50 transition-colors">
+          <i class="fas fa-external-link-alt"></i> External Link
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Task Details Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Content -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Description -->
+      {% if task.description_md %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i class="fas fa-align-left"></i> Description
+          </h3>
+          <div class="prose max-w-none">
+            <pre class="whitespace-pre-wrap text-slate-700 bg-slate-50 p-4 rounded-lg">{{ task.description_md }}</pre>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Subtasks -->
+      {% if task.subtasks.exists %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i class="fas fa-list-ul"></i> Subtasks ({{ task.subtasks.count }})
+          </h3>
+          <div class="space-y-3">
+            {% for subtask in task.subtasks.all %}
+              <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                <span class="status-badge status-{{ subtask.status }} px-2 py-1 rounded text-xs">{{ subtask.get_status_display }}</span>
+                <span class="flex-1 font-medium">{{ subtask.title }}</span>
+                <a href="{% url 'task_detail' subtask.id %}" class="text-sky-600 hover:text-sky-700">
+                  <i class="fas fa-external-link-alt"></i>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Dependencies -->
+      {% if task.blocked_by.exists %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i class="fas fa-link"></i> Blocked By ({{ task.blocked_by.count }})
+          </h3>
+          <div class="space-y-3">
+            {% for dependency in task.blocked_by.all %}
+              <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                <span class="priority-badge priority-{{ dependency.blocker.priority }} px-2 py-1 rounded text-xs">P{{ dependency.blocker.priority }}</span>
+                <span class="flex-1 font-medium">{{ dependency.blocker.title }}</span>
+                <a href="{% url 'task_detail' dependency.blocker.id %}" class="text-sky-600 hover:text-sky-700">
+                  <i class="fas fa-external-link-alt"></i>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+      <!-- Task Info -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-info-circle"></i> Task Info
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Status</label>
+            <span class="status-badge status-{{ task.status }} px-3 py-1 rounded-full">{{ task.get_status_display }}</span>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Priority</label>
+            <span class="priority-badge priority-{{ task.priority }} px-3 py-1 rounded-full">Priority {{ task.priority }}</span>
+          </div>
+
+          {% if task.start_at %}
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Start Date</label>
+              <p class="text-slate-900">{{ task.start_at|date:"M j, Y H:i" }}</p>
+            </div>
+          {% endif %}
+
+          {% if task.due_at %}
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Due Date</label>
+              <p class="text-slate-900">{{ task.due_at|date:"M j, Y H:i" }}</p>
+            </div>
+          {% endif %}
+
+          {% if task.estimate_minutes %}
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Estimate</label>
+              <p class="text-slate-900">{{ task.estimate_minutes }} minutes</p>
+            </div>
+          {% endif %}
+
+          {% if task.completed_at %}
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Completed</label>
+              <p class="text-emerald-600">{{ task.completed_at|date:"M j, Y H:i" }}</p>
+            </div>
+          {% endif %}
+
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Created</label>
+            <p class="text-slate-900">{{ task.created_at|date:"M j, Y H:i" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      {% if task.tags.exists %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i class="fas fa-tags"></i> Tags
+          </h3>
+          <div class="flex flex-wrap gap-2">
+            {% for tag in task.tags.all %}
+              <span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm">#{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Quick Actions -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <i class="fas fa-bolt"></i> Quick Actions
+        </h3>
+        <div class="space-y-3">
+          <button onclick="snoozeTask({{ task.id }})" class="w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-3">
+            <i class="fas fa-clock text-slate-600"></i>
+            <span>Snooze 30 minutes</span>
+          </button>
+          <button onclick="startFocusSession({{ task.id }})" class="w-full text-left px-4 py-3 rounded-lg hover:bg-emerald-50 transition-colors flex items-center gap-3">
+            <i class="fas fa-play text-emerald-600"></i>
+            <span>Start Focus Session</span>
+          </button>
+          <a href="{% url 'task_edit' task.id %}" class="w-full text-left px-4 py-3 rounded-lg hover:bg-sky-50 transition-colors flex items-center gap-3">
+            <i class="fas fa-edit text-sky-600"></i>
+            <span>Edit Task</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+
+.status-badge.status-todo { background-color: #f1f5f9; color: #64748b; }
+.status-badge.status-in_progress { background-color: #f0f9ff; color: #0284c7; }
+.status-badge.status-blocked { background-color: #fef2f2; color: #dc2626; }
+.status-badge.status-done { background-color: #f0fdf4; color: #16a34a; }
+.status-badge.status-cancelled { background-color: #f8fafc; color: #64748b; }
+</style>
+
+<script>
+function snoozeTask(taskId) {
+  const minutes = prompt('Snooze for how many minutes?', '30');
+  if (minutes && !isNaN(minutes)) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/snooze/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const minutesInput = document.createElement('input');
+    minutesInput.type = 'hidden';
+    minutesInput.name = 'minutes';
+    minutesInput.value = minutes;
+    
+    form.appendChild(csrfInput);
+    form.appendChild(minutesInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function startFocusSession(taskId) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/focus/start/';
+  
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  const kindInput = document.createElement('input');
+  kindInput.type = 'hidden';
+  kindInput.name = 'kind';
+  kindInput.value = 'work';
+  
+  const taskInput = document.createElement('input');
+  taskInput.type = 'hidden';
+  taskInput.name = 'task_id';
+  taskInput.value = taskId;
+  
+  form.appendChild(csrfInput);
+  form.appendChild(kindInput);
+  form.appendChild(taskInput);
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
+{% endblock %} 

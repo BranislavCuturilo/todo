@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Task Relationships · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <i class="fas fa-project-diagram text-purple-600"></i>
+          Task Relationships
+        </h1>
+        <p class="text-slate-600 mt-1">Manage connections between "{{ task.title }}" and other tasks</p>
+      </div>
+      <a href="{% url 'task_detail' task.id %}" class="text-slate-600 hover:text-slate-900">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Task
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Add New Relationship -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-plus text-emerald-600"></i>
+        Add Relationship
+      </h2>
+      
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Related Task</label>
+          <select name="to_task" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+            <option value="">Select a task...</option>
+            {% for available_task in available_tasks %}
+              <option value="{{ available_task.id }}">{{ available_task.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Relationship Type</label>
+          <select name="relationship_type" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+            <option value="blocks">Blocks</option>
+            <option value="depends_on">Depends On</option>
+            <option value="related_to">Related To</option>
+            <option value="duplicates">Duplicates</option>
+            <option value="subtask_of">Subtask Of</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Description (Optional)</label>
+          <textarea name="description" rows="3" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Describe the relationship..."></textarea>
+        </div>
+        
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="fas fa-plus mr-2"></i>Add Relationship
+        </button>
+      </form>
+    </div>
+
+    <!-- Current Relationships -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-link text-blue-600"></i>
+        Current Relationships
+      </h2>
+      
+      {% if outgoing_relationships or incoming_relationships %}
+        <div class="space-y-4">
+          {% if outgoing_relationships %}
+            <div>
+              <h3 class="font-medium text-slate-900 mb-2">Outgoing Relationships</h3>
+              <div class="space-y-2">
+                {% for rel in outgoing_relationships %}
+                  <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{{ rel.get_relationship_type_display }}</span>
+                          <span class="text-sm font-medium text-slate-900">{{ rel.to_task.title }}</span>
+                        </div>
+                        {% if rel.description %}
+                          <p class="text-xs text-slate-600">{{ rel.description }}</p>
+                        {% endif %}
+                      </div>
+                      <a href="{% url 'task_detail' rel.to_task.id %}" class="text-blue-600 hover:text-blue-700 text-sm">
+                        <i class="fas fa-external-link-alt"></i>
+                      </a>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          
+          {% if incoming_relationships %}
+            <div>
+              <h3 class="font-medium text-slate-900 mb-2">Incoming Relationships</h3>
+              <div class="space-y-2">
+                {% for rel in incoming_relationships %}
+                  <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">{{ rel.get_relationship_type_display }}</span>
+                          <span class="text-sm font-medium text-slate-900">{{ rel.from_task.title }}</span>
+                        </div>
+                        {% if rel.description %}
+                          <p class="text-xs text-slate-600">{{ rel.description }}</p>
+                        {% endif %}
+                      </div>
+                      <a href="{% url 'task_detail' rel.from_task.id %}" class="text-purple-600 hover:text-purple-700 text-sm">
+                        <i class="fas fa-external-link-alt"></i>
+                      </a>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="text-center py-8 text-slate-500">
+          <i class="fas fa-link text-2xl mb-2"></i>
+          <p class="text-sm">No relationships defined yet.</p>
+          <p class="text-xs text-slate-400 mt-1">Add relationships to see how tasks connect.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
