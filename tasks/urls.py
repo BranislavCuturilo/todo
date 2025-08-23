@@ -30,6 +30,8 @@ urlpatterns = [
     path('tasks/<int:task_id>/delete/', views.task_delete, name='task_delete'),
     path('tasks/<int:task_id>/snooze/', views.snooze_task, name='snooze_task'),
     path('tasks/<int:task_id>/relationships/', views.task_relationships, name='task_relationships'),
+    path('tasks/<int:task_id>/mark-done/', views.mark_task_done, name='mark_task_done'),
+    path('tasks/<int:task_id>/mark-undone/', views.mark_task_undone, name='mark_task_undone'),
 
     path('quick-add/', views.quick_add, name='quick_add'),
     path('focus/start/', views.focus_start, name='focus_start'),

@@ -125,6 +125,15 @@
               <!-- Task Actions -->
               <div class="flex items-center justify-between pt-3 border-t border-slate-200">
                 <div class="flex items-center gap-2">
+                  {% if task.status != 'done' %}
+                    <button onclick="markTaskDone({{ task.id }})" class="text-emerald-600 hover:text-emerald-700 text-sm">
+                      <i class="fas fa-check mr-1"></i>Done
+                    </button>
+                  {% else %}
+                    <button onclick="markTaskUndone({{ task.id }})" class="text-amber-600 hover:text-amber-700 text-sm">
+                      <i class="fas fa-undo mr-1"></i>Undo
+                    </button>
+                  {% endif %}
                   <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 text-sm">
                     <i class="fas fa-eye mr-1"></i>View
                   </a>
@@ -253,4 +262,91 @@
   overflow: hidden;
 }
 </style>
+
+<script>
+function snoozeTask(taskId) {
+  const minutes = prompt('Snooze for how many minutes?', '30');
+  if (minutes && !isNaN(minutes)) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/snooze/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const minutesInput = document.createElement('input');
+    minutesInput.type = 'hidden';
+    minutesInput.name = 'minutes';
+    minutesInput.value = minutes;
+    
+    form.appendChild(csrfInput);
+    form.appendChild(minutesInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function startFocusSession(taskId) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/focus/start/';
+  
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  const kindInput = document.createElement('input');
+  kindInput.type = 'hidden';
+  kindInput.name = 'kind';
+  kindInput.value = 'work';
+  
+  const taskInput = document.createElement('input');
+  taskInput.type = 'hidden';
+  taskInput.name = 'task_id';
+  taskInput.value = taskId;
+  
+  form.appendChild(csrfInput);
+  form.appendChild(kindInput);
+  form.appendChild(taskInput);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+function markTaskDone(taskId) {
+  if (confirm('Are you sure you want to mark this task as done?')) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/mark-done/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    form.appendChild(csrfInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function markTaskUndone(taskId) {
+  if (confirm('Are you sure you want to mark this task as todo?')) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/mark-undone/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    form.appendChild(csrfInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
 {% endblock %} 

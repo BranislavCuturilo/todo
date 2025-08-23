@@ -167,6 +167,9 @@
             <div class="flex items-center justify-between text-xs text-slate-600">
               <span class="text-red-600 font-medium">Due {{ task.due_at|date:"M j" }}</span>
               <div class="flex items-center gap-1">
+                <button onclick="markTaskDone({{ task.id }})" class="text-emerald-600 hover:text-emerald-700" title="Mark as Done">
+                  <i class="fas fa-check"></i>
+                </button>
                 <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700">
                   <i class="fas fa-eye"></i>
                 </a>
@@ -215,6 +218,9 @@
             <div class="flex items-center justify-between text-xs text-slate-600">
               <span>Due {{ task.due_at|date:"M j" }}{% if task.estimate_minutes %} • {{ task.estimate_minutes }}m{% endif %}</span>
               <div class="flex items-center gap-1">
+                <button onclick="markTaskDone({{ task.id }})" class="text-emerald-600 hover:text-emerald-700" title="Mark as Done">
+                  <i class="fas fa-check"></i>
+                </button>
                 <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700">
                   <i class="fas fa-eye"></i>
                 </a>
@@ -263,6 +269,9 @@
             <div class="flex items-center justify-between text-xs text-slate-600">
               <span>{% if task.estimate_minutes %}{{ task.estimate_minutes }}m{% else %}No estimate{% endif %} • Score: {{ task.optimization_score }}</span>
               <div class="flex items-center gap-1">
+                <button onclick="markTaskDone({{ task.id }})" class="text-emerald-600 hover:text-emerald-700" title="Mark as Done">
+                  <i class="fas fa-check"></i>
+                </button>
                 <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700">
                   <i class="fas fa-eye"></i>
                 </a>
@@ -392,6 +401,23 @@ function startFocusSession(taskId) {
   form.appendChild(taskInput);
   document.body.appendChild(form);
   form.submit();
+}
+
+function markTaskDone(taskId) {
+  if (confirm('Are you sure you want to mark this task as done?')) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/mark-done/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    form.appendChild(csrfInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
 }
 </script>
 {% endblock %} 

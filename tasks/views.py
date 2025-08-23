@@ -590,6 +590,21 @@ def list_done(request):
 @login_required
 def task_detail(request, task_id):
     task = get_object_or_404(Task, id=task_id, user=request.user)
+    
+    # Handle POST actions
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'done':
+            task.status = 'done'
+            task.save()
+            messages.success(request, f'Task "{task.title}" marked as done!')
+            return redirect('task_detail', task_id=task.id)
+        elif action == 'undo_done':
+            task.status = 'todo'
+            task.save()
+            messages.success(request, f'Task "{task.title}" marked as todo!')
+            return redirect('task_detail', task_id=task.id)
+    
     relationships = TaskRelationship.objects.filter(from_task=task)
     incoming_relationships = TaskRelationship.objects.filter(to_task=task)
     
@@ -1138,3 +1153,33 @@ def task_delete(request, task_id):
         'sketch_count': sketch_count,
         'relationship_count': relationship_count,
     })
+
+@login_required
+def mark_task_done(request, task_id):
+    """Mark a task as done via AJAX"""
+    if request.method == 'POST':
+        task = get_object_or_404(Task, id=task_id, user=request.user)
+        task.status = 'done'
+        task.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'Task "{task.title}" marked as done!',
+            'task_id': task.id,
+            'status': 'done'
+        })
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@login_required
+def mark_task_undone(request, task_id):
+    """Mark a task as undone via AJAX"""
+    if request.method == 'POST':
+        task = get_object_or_404(Task, id=task_id, user=request.user)
+        task.status = 'todo'
+        task.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'Task "{task.title}" marked as todo!',
+            'task_id': task.id,
+            'status': 'todo'
+        })
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
