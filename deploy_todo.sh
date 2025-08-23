@@ -30,6 +30,19 @@ python manage.py migrate --settings=solo_todo.settings_production
 echo "📁 Collecting static files..."
 python manage.py collectstatic --noinput --settings=solo_todo.settings_production
 
+# Aggressively clear all caches
+echo "🧹 Aggressively clearing all caches..."
+# Clear Django cache
+python -c "from django.core.cache import cache; cache.clear()" --settings=solo_todo.settings_production 2>/dev/null || true
+
+# Clear static files cache completely
+sudo rm -rf /var/www/todo/staticfiles
+python manage.py collectstatic --noinput --settings=solo_todo.settings_production
+
+# Clear nginx cache
+sudo rm -rf /var/cache/nginx/*
+sudo nginx -s reload 2>/dev/null || true
+
 # Clear old service worker caches by updating cache version
 echo "🧹 Clearing old caches..."
 # The service worker cache will be automatically updated with the new version

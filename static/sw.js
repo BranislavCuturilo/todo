@@ -1,7 +1,22 @@
-const CACHE_NAME = 'todo-v1';
+const CACHE_NAME = 'todo-v2';
 const URLS = ['/', '/inbox/', '/today/', '/upcoming/', '/done/', '/projects/'];
+
+// Force clear old caches on install
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS)));
+  e.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          if (cacheName.includes('solo-todo') || cacheName === 'todo-v1') {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      return caches.open(CACHE_NAME).then(c => c.addAll(URLS));
+    })
+  );
 });
 self.addEventListener('fetch', (event) => {
   const req = event.request;

@@ -4,6 +4,9 @@ from . import views
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     
+    # Cache test page
+    path('cache-test/', views.cache_test, name='cache_test'),
+    
     # New main navigation
     path('all-tasks/', views.all_tasks, name='all_tasks'),
     path('calendar/', views.calendar_view, name='calendar'),
