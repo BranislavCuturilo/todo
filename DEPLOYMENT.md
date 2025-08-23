@@ -339,7 +339,7 @@ max_requests_jitter = 50
 
 ## 🎉 Success!
 
-Nakon ovih koraka, vaša Solo TODO aplikacija će biti dostupna na:
+Nakon ovih koraka, vaša TODO aplikacija će biti dostupna na:
 - HTTP: http://yourdomain.com
 - HTTPS: https://yourdomain.com (nakon SSL setup-a)
 

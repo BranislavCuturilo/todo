@@ -48,7 +48,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            messages.success(request, f'Welcome to Solo TODO, {user.username}! Your account has been created successfully.')
+            messages.success(request, f'Welcome to TODO, {user.username}! Your account has been created successfully.')
             return redirect('dashboard')
     else:
         form = UserCreationForm()
