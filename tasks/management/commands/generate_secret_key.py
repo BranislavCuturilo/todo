@@ -16,3 +16,4 @@ class Command(BaseCommand):
             )
         )
 
+

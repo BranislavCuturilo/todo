@@ -41,8 +41,9 @@ jobs:
           # Restart the application
           sudo systemctl restart todo
           
-                     # Test if the application is running
-           sleep 5
-           curl -f http://localhost:8001/ || exit 1
+          # Test if the application is running
+          sleep 5
+          curl -f http://localhost:8001/ || exit 1
           
           echo "Deployment completed successfully!"
+          echo "Note: If you still see 'solo todo' in the browser, try hard refresh (Ctrl+F5) or clear browser cache"

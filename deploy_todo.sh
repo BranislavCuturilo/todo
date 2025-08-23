@@ -1,132 +1,71 @@
 #!/bin/bash
 
-# TODO App Deployment Script for VPS 185.119.90.175
-# Run this script on your VPS server
+# Deploy TODO application to production
+echo "🚀 Deploying TODO application..."
 
-set -e  # Exit on any error
-
-echo "🚀 Starting TODO App deployment on VPS 185.119.90.175..."
-
-# Update system
-echo "📦 Updating system packages..."
-sudo apt update && sudo apt upgrade -y
-
-# Install required packages
-echo "🔧 Installing required packages..."
-sudo apt install -y python3 python3-pip python3-venv nginx postgresql postgresql-contrib git curl certbot python3-certbot-nginx
-
-# Create application directory
-echo "📁 Creating application directory..."
-sudo mkdir -p /var/www/todo
-sudo chown $USER:$USER /var/www/todo
-
-# Clone repository
-echo "📥 Cloning repository..."
+# Navigate to project directory
 cd /var/www/todo
-git clone https://github.com/BranislavCuturilo/todo.git .
 
-# Create virtual environment
-echo "🐍 Creating virtual environment..."
-python3 -m venv venv
+# Pull latest changes
+echo "📥 Pulling latest changes..."
+git pull origin main
+
+# Activate virtual environment
+echo "🐍 Activating virtual environment..."
 source venv/bin/activate
 
-# Install dependencies
-echo "📚 Installing Python dependencies..."
+# Install/update dependencies
+echo "📦 Installing dependencies..."
 pip install -r requirements.txt
 
-# Set up environment variables
-echo "⚙️ Setting up environment variables..."
-cp env.example .env
-echo "Please edit .env file with your settings:"
-echo "nano .env"
-
-# Set up PostgreSQL
-echo "🗄️ Setting up PostgreSQL database..."
-sudo -u postgres psql << EOF
-CREATE DATABASE todo;
-CREATE USER todo WITH PASSWORD 'todo_password_123';
-GRANT ALL PRIVILEGES ON DATABASE todo TO todo;
-ALTER USER todo CREATEDB;
-\q
-EOF
-
-# Run migrations
-echo "🔄 Running database migrations..."
+# Run database migrations
+echo "🗄️ Running database migrations..."
 python manage.py migrate --settings=solo_todo.settings_production
 
-# Create superuser
-echo "👤 Creating superuser..."
-python manage.py createsuperuser --settings=solo_todo.settings_production
+# Create superuser if needed (uncomment if needed)
+# echo "👤 Creating superuser..."
+# python manage.py createsuperuser --settings=solo_todo.settings_production
 
 # Collect static files
-echo "📦 Collecting static files..."
+echo "📁 Collecting static files..."
 python manage.py collectstatic --noinput --settings=solo_todo.settings_production
 
-# Set up Gunicorn service
-echo "🔧 Setting up Gunicorn service..."
-sudo cp solo-todo.service /etc/systemd/system/todo.service
-sudo systemctl daemon-reload
-sudo systemctl enable todo
-sudo systemctl start todo
+# Clear old service worker caches by updating cache version
+echo "🧹 Clearing old caches..."
+# The service worker cache will be automatically updated with the new version
 
-# Set up Nginx
-echo "🌐 Setting up Nginx..."
-sudo cp nginx.conf /etc/nginx/sites-available/todo
-sudo ln -sf /etc/nginx/sites-available/todo /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
+# Restart the application
+echo "🔄 Restarting application..."
+sudo systemctl restart todo
 
-# Set up SSL with Let's Encrypt
-echo "🔒 Setting up SSL certificate..."
-sudo certbot --nginx -d todo.emikon.rs -d www.todo.emikon.rs --non-interactive --agree-tos --email your-email@example.com
+# Wait a moment for the service to start
+sleep 3
 
-# Set proper permissions
-echo "🔐 Setting proper permissions..."
-sudo chown -R www-data:www-data /var/www/todo
-sudo chmod -R 755 /var/www/todo
+# Check if the application is running
+echo "🔍 Checking application status..."
+if sudo systemctl is-active --quiet todo; then
+    echo "✅ Application is running successfully!"
+    echo "🌐 Application URL: http://your-domain.com"
+else
+    echo "❌ Application failed to start!"
+    sudo systemctl status todo
+    exit 1
+fi
 
-# Create backup script
-echo "💾 Setting up backup script..."
-sudo tee /var/www/todo/backup.sh > /dev/null << 'EOF'
-#!/bin/bash
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/var/www/todo/backups"
-mkdir -p $BACKUP_DIR
+# Test if the application is responding
+echo "🧪 Testing application response..."
+sleep 5
+if curl -f http://localhost:8001/ > /dev/null 2>&1; then
+    echo "✅ Application is responding correctly!"
+else
+    echo "❌ Application is not responding!"
+    exit 1
+fi
 
-# Database backup
-sudo -u postgres pg_dump todo > $BACKUP_DIR/todo_$DATE.sql
+echo "🎉 Deployment completed successfully!"
+echo "💡 If you still see 'solo todo' in the browser, try:"
+echo "   1. Hard refresh (Ctrl+F5 or Cmd+Shift+R)"
+echo "   2. Clear browser cache"
+echo "   3. Open in incognito/private mode"
 
-# Media files backup
-tar -czf $BACKUP_DIR/media_$DATE.tar.gz /var/www/todo/media/
-
-# Keep only last 7 days of backups
-find $BACKUP_DIR -name "*.sql" -mtime +7 -delete
-find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
-EOF
-
-sudo chmod +x /var/www/todo/backup.sh
-
-# Add backup to crontab
-echo "⏰ Setting up automatic backups..."
-(crontab -l 2>/dev/null; echo "0 2 * * * /var/www/todo/backup.sh") | crontab -
-
-echo "✅ Deployment completed successfully!"
-echo ""
-echo "🌐 Your application is now available at:"
-echo "   http://todo.emikon.rs"
-echo "   https://todo.emikon.rs"
-echo ""
-echo "🔧 Useful commands:"
-echo "   sudo systemctl status todo    # Check app status"
-echo "   sudo systemctl restart todo   # Restart app"
-echo "   sudo systemctl status nginx   # Check nginx status"
-echo "   sudo journalctl -u todo -f    # View app logs"
-echo ""
-echo "📝 Next steps:"
-echo "1. Edit .env file with your settings"
-echo "2. Update DNS records to point todo.emikon.rs to 185.119.90.175"
-echo "3. Test the application"
-echo ""
-echo "🎉 Deployment complete!"
 

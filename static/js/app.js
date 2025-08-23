@@ -1,3 +1,25 @@
+// Clear old service worker caches
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+    }
+  });
+  
+  // Clear old caches
+  if ('caches' in window) {
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          if (cacheName.includes('solo-todo')) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    });
+  }
+}
+
 // Prevent form submission on Enter for quick-add
 document.addEventListener('DOMContentLoaded', function() {
   const quickAddForm = document.querySelector('form[action*="quick-add"]');

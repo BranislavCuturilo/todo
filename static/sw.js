@@ -1,4 +1,4 @@
-const CACHE_NAME = 'solo-todo-v1';
+const CACHE_NAME = 'todo-v1';
 const URLS = ['/', '/inbox/', '/today/', '/upcoming/', '/done/', '/projects/'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS)));
