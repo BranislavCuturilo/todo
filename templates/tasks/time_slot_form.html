@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Create Time Slot · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Create Time Slot</h1>
+      <p class="text-slate-600 mt-1">Add a time slot when you're not available for tasks</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <div>
+        <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+          Time Slot Name
+        </label>
+        {{ form.name }}
+        <p class="text-sm text-slate-500 mt-1">e.g., Lunch Break, Coffee Break, Meeting Time</p>
+        {% if form.name.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.name.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="{{ form.start_time.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            Start Time
+          </label>
+          {{ form.start_time }}
+          {% if form.start_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.start_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+        
+        <div>
+          <label for="{{ form.end_time.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            End Time
+          </label>
+          {{ form.end_time }}
+          {% if form.end_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.end_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-2">
+          Days of Week
+        </label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {% for value, label in form.days_of_week.field.choices %}
+            <label class="flex items-center">
+              <input type="checkbox" name="{{ form.days_of_week.name }}" value="{{ value }}" 
+                     {% if value|stringformat:"s" in form.days_of_week.value %}checked{% endif %}
+                     class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+              <span class="ml-2 text-sm text-slate-700">{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <p class="text-sm text-slate-500 mt-2">Select the days when this time slot applies</p>
+        {% if form.days_of_week.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.days_of_week.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div>
+        <label for="{{ form.is_active.id_for_label }}" class="flex items-center">
+          {{ form.is_active }}
+          <span class="ml-2 text-sm font-medium text-slate-700">Active</span>
+        </label>
+        <p class="text-sm text-slate-500 mt-1">Uncheck to temporarily disable this time slot</p>
+        {% if form.is_active.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.is_active.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div class="flex items-center justify-between pt-6 border-t border-slate-200">
+        <a href="{% url 'calendar' %}" class="text-slate-600 hover:text-slate-900">
+          <i class="fas fa-arrow-left mr-2"></i>Back to Calendar
+        </a>
+        <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-lg transition-colors">
+          Create Time Slot
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  input[type="text"], input[type="time"] {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+  input[type="checkbox"] {
+    @apply w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,17 @@
+# Django and core dependencies
+Django>=5.2.5,<5.3
+djangorestframework>=3.14.0,<4.0
+django-filter>=23.5,<24.0
+
+# Production dependencies
+python-decouple>=3.8,<4.0  # For environment variables
+gunicorn>=21.2.0,<22.0  # WSGI server
+whitenoise>=6.6.0,<7.0  # Static file serving
+psycopg2-binary>=2.9.0,<3.0  # PostgreSQL adapter
+
+# Development dependencies (optional)
+# Uncomment these if you need them for development
+# django-debug-toolbar>=4.2.0,<5.0  # For debugging
+# pytest-django>=4.7.0,<5.0  # For testing
+# black>=23.0,<24.0  # For code formatting
+# flake8>=6.0,<7.0  # For linting

@@ -54,18 +54,6 @@
     <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-slate-600">Today's Tasks</p>
-          <p class="text-2xl font-bold text-slate-900">{{ tasks_today.count }}</p>
-        </div>
-        <div class="p-3 bg-blue-50 rounded-lg">
-          <i class="fas fa-calendar-day text-blue-600 text-xl"></i>
-        </div>
-      </div>
-    </div>
-    
-    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-      <div class="flex items-center justify-between">
-        <div>
           <p class="text-sm font-medium text-slate-600">Overdue</p>
           <p class="text-2xl font-bold text-red-600">{{ overdue.count }}</p>
         </div>
@@ -78,11 +66,11 @@
     <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-slate-600">Inbox</p>
-          <p class="text-2xl font-bold text-slate-900">{{ inbox.count }}</p>
+          <p class="text-sm font-medium text-slate-600">Scheduled</p>
+          <p class="text-2xl font-bold text-blue-600">{{ scheduled.count }}</p>
         </div>
-        <div class="p-3 bg-slate-50 rounded-lg">
-          <i class="fas fa-inbox text-slate-600 text-xl"></i>
+        <div class="p-3 bg-blue-50 rounded-lg">
+          <i class="fas fa-calendar-check text-blue-600 text-xl"></i>
         </div>
       </div>
     </div>
@@ -90,11 +78,23 @@
     <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-slate-600">Focus Time</p>
-          <p class="text-2xl font-bold text-slate-900">0m</p>
+          <p class="text-sm font-medium text-slate-600">Not Scheduled</p>
+          <p class="text-2xl font-bold text-orange-600">{{ not_scheduled.count }}</p>
+        </div>
+        <div class="p-3 bg-orange-50 rounded-lg">
+          <i class="fas fa-clock text-orange-600 text-xl"></i>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-600">Daily Capacity</p>
+          <p class="text-2xl font-bold text-emerald-600">4h</p>
         </div>
         <div class="p-3 bg-emerald-50 rounded-lg">
-          <i class="fas fa-clock text-emerald-600 text-xl"></i>
+          <i class="fas fa-hourglass-half text-emerald-600 text-xl"></i>
         </div>
       </div>
     </div>
@@ -138,15 +138,16 @@
     </div>
   </div>
 
-  <!-- Kanban Board -->
+  <!-- Task Sections -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Overdue Column -->
+    <!-- Overdue Section -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
       <div class="p-4 border-b border-slate-100">
         <h3 class="text-lg font-semibold text-red-600 flex items-center gap-2">
           <i class="fas fa-exclamation-triangle"></i>
           Overdue ({{ overdue.count }})
         </h3>
+        <p class="text-xs text-slate-500 mt-1">Sorted by priority, then due date</p>
       </div>
       <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
         {% for task in overdue %}
@@ -187,16 +188,17 @@
       </div>
     </div>
 
-    <!-- Today Column -->
+    <!-- Scheduled Section -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
       <div class="p-4 border-b border-slate-100">
         <h3 class="text-lg font-semibold text-blue-600 flex items-center gap-2">
-          <i class="fas fa-calendar-day"></i>
-          Today ({{ tasks_today.count }})
+          <i class="fas fa-calendar-check"></i>
+          Scheduled ({{ scheduled.count }})
         </h3>
+        <p class="text-xs text-slate-500 mt-1">Optimized for 4h daily capacity</p>
       </div>
       <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
-        {% for task in tasks_today %}
+        {% for task in scheduled %}
           <div class="task-card bg-blue-50 border border-blue-200 rounded-lg p-3 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between mb-2">
               <h4 class="font-medium text-slate-900 text-sm line-clamp-2 flex-1 pr-2">{{ task.title }}</h4>
@@ -211,7 +213,7 @@
             {% endif %}
             
             <div class="flex items-center justify-between text-xs text-slate-600">
-              <span>Due {{ task.due_at|date:"M j" }}</span>
+              <span>Due {{ task.due_at|date:"M j" }}{% if task.estimate_minutes %} • {{ task.estimate_minutes }}m{% endif %}</span>
               <div class="flex items-center gap-1">
                 <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700">
                   <i class="fas fa-eye"></i>
@@ -227,31 +229,39 @@
           </div>
         {% empty %}
           <div class="text-center py-8 text-slate-500">
-            <i class="fas fa-calendar-day text-2xl mb-2"></i>
-            <p class="text-sm">No tasks for today!</p>
+            <i class="fas fa-calendar-check text-2xl mb-2"></i>
+            <p class="text-sm">No scheduled tasks!</p>
           </div>
         {% endfor %}
       </div>
     </div>
 
-    <!-- Inbox Column -->
+    <!-- Not Scheduled Section -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
       <div class="p-4 border-b border-slate-100">
-        <h3 class="text-lg font-semibold text-slate-600 flex items-center gap-2">
-          <i class="fas fa-inbox"></i>
-          Inbox ({{ inbox.count }})
+        <h3 class="text-lg font-semibold text-orange-600 flex items-center gap-2">
+          <i class="fas fa-clock"></i>
+          Not Scheduled ({{ not_scheduled.count }})
         </h3>
+        <p class="text-xs text-slate-500 mt-1">Ranked by priority, project, duration</p>
       </div>
       <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
-        {% for task in inbox %}
-          <div class="task-card bg-slate-50 border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+        {% for task in not_scheduled %}
+          <div class="task-card bg-orange-50 border border-orange-200 rounded-lg p-3 hover:shadow-md transition-shadow">
             <div class="flex items-start justify-between mb-2">
               <h4 class="font-medium text-slate-900 text-sm line-clamp-2 flex-1 pr-2">{{ task.title }}</h4>
               <span class="priority-badge priority-{{ task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task.priority }}</span>
             </div>
             
+            {% if task.project %}
+              <div class="flex items-center gap-1 mb-2">
+                <i class="fas fa-folder text-blue-600 text-xs"></i>
+                <span class="text-xs text-blue-700">{{ task.project.name }}</span>
+              </div>
+            {% endif %}
+            
             <div class="flex items-center justify-between text-xs text-slate-600">
-              <span>Created {{ task.created_at|date:"M j" }}</span>
+              <span>{% if task.estimate_minutes %}{{ task.estimate_minutes }}m{% else %}No estimate{% endif %} • Score: {{ task.optimization_score }}</span>
               <div class="flex items-center gap-1">
                 <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700">
                   <i class="fas fa-eye"></i>
@@ -267,8 +277,8 @@
           </div>
         {% empty %}
           <div class="text-center py-8 text-slate-500">
-            <i class="fas fa-inbox text-2xl mb-2"></i>
-            <p class="text-sm">Inbox is empty!</p>
+            <i class="fas fa-clock text-2xl mb-2"></i>
+            <p class="text-sm">No unscheduled tasks!</p>
           </div>
         {% endfor %}
       </div>

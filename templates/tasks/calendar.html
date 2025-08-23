@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% block title %}Calendar · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-900">Calendar</h1>
+      <p class="text-slate-600 mt-1">Plan your week with events and scheduled tasks</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'user_preferences_edit' %}" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <i class="fas fa-cog"></i> Preferences
+      </a>
+      <a href="{% url 'event_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <i class="fas fa-plus"></i> Add Event
+      </a>
+      <a href="{% url 'time_slot_create' %}" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+        <i class="fas fa-clock"></i> Add Time Slot
+      </a>
+      <form method="post" action="{% url 'regenerate_calendar' %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <i class="fas fa-sync-alt"></i> Regenerate
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Week Navigation -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="?week={{ week_offset|add:'-1' }}" class="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-slate-100">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+        <h2 class="text-lg font-semibold text-slate-900">
+          {{ start_of_week|date:"M j" }} - {{ end_of_week|date:"M j, Y" }}
+        </h2>
+        <a href="?week={{ week_offset|add:'1' }}" class="text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-slate-100">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+        {% if week_offset != 0 %}
+          <a href="?week=0" class="text-sm text-blue-600 hover:text-blue-800">
+            <i class="fas fa-calendar-day mr-1"></i>Today
+          </a>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2 text-sm text-slate-600">
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-blue-500 rounded"></div>
+          Events
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-purple-500 rounded"></div>
+          Recurring Events
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-red-500 rounded"></div>
+          P1 Tasks
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-orange-500 rounded"></div>
+          P2 Tasks
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-blue-500 rounded"></div>
+          P3 Tasks
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-green-500 rounded"></div>
+          P4 Tasks
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-gray-500 rounded"></div>
+          P5 Tasks
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-amber-500 rounded"></div>
+          Time Slots
+        </span>
+        <span class="flex items-center gap-1">
+          <div class="w-3 h-3 bg-slate-300 rounded"></div>
+          Working Hours
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <!-- Time Headers -->
+    <div class="grid grid-cols-8 border-b border-slate-200">
+      <div class="p-3 bg-slate-50 border-r border-slate-200"></div>
+      {% for day_date in week_dates %}
+        <div class="p-3 bg-slate-50 border-r border-slate-200 text-center">
+          <div class="text-sm font-medium text-slate-900">
+            {{ day_date|date:"D" }}
+          </div>
+          <div class="text-xs text-slate-600">
+            {{ day_date|date:"M j" }}
+          </div>
+          {% if day_date == today %}
+            <div class="w-2 h-2 bg-sky-500 rounded-full mx-auto mt-1"></div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Time Slots -->
+    {% for hour in hours %}
+      <div class="grid grid-cols-8 border-b border-slate-100 {% if hour >= user_preferences.work_start_time.hour and hour < user_preferences.work_end_time.hour %}bg-slate-50{% endif %}">
+        <!-- Time Label -->
+        <div class="p-2 bg-slate-50 border-r border-slate-200 text-xs text-slate-600 text-center {% if hour >= user_preferences.work_start_time.hour and hour < user_preferences.work_end_time.hour %}bg-slate-200{% endif %}">
+          {{ hour|stringformat:"02d" }}:00
+        </div>
+        
+        <!-- Day Columns -->
+        {% for day_date in week_dates %}
+          <div class="p-2 border-r border-slate-100 min-h-16 relative {% if hour >= user_preferences.work_start_time.hour and hour < user_preferences.work_end_time.hour %}bg-slate-50{% endif %}">
+            <!-- Events for this time slot -->
+            {% for event in events %}
+              {% if event.start_time.date == day_date %}
+                {% if event.start_time.hour <= hour and event.end_time.hour >= hour %}
+                  <div class="{% if event.is_recurring_instance %}bg-purple-100 border-purple-300{% else %}bg-blue-100 border-blue-300{% endif %} border rounded p-1 mb-1 text-xs relative group">
+                    <div class="font-medium {% if event.is_recurring_instance %}text-purple-900{% else %}text-blue-900{% endif %} flex items-center gap-1">
+                      {% if event.is_recurring_instance %}
+                        <i class="fas fa-redo text-purple-600"></i>
+                      {% endif %}
+                      {{ event.title }}
+                    </div>
+                    {% if event.start_time.hour == hour %}
+                      <div class="{% if event.is_recurring_instance %}text-purple-700{% else %}text-blue-700{% endif %}">{{ event.start_time|date:"g:i" }} - {{ event.end_time|date:"g:i" }}</div>
+                    {% elif event.end_time.hour == hour %}
+                      <div class="{% if event.is_recurring_instance %}text-purple-700{% else %}text-blue-700{% endif %}">{{ event.start_time|date:"g:i" }} - {{ event.end_time|date:"g:i" }}</div>
+                    {% else %}
+                      <div class="{% if event.is_recurring_instance %}text-purple-700{% else %}text-blue-700{% endif %}">{{ event.start_time|date:"g:i" }} - {{ event.end_time|date:"g:i" }}</div>
+                    {% endif %}
+                    {% if event.is_recurring_instance %}
+                      <div class="text-purple-600 text-xs">🔄 Recurring</div>
+                    {% endif %}
+                    <div class="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {% if not event.is_recurring_instance %}
+                        <a href="{% url 'event_edit' event.original_event.id %}" class="text-blue-600 hover:text-blue-800 text-xs px-1" title="Edit event">
+                          <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'event_delete' event.original_event.id %}" class="text-red-600 hover:text-red-800 text-xs px-1" title="Delete event">
+                          <i class="fas fa-trash"></i>
+                        </a>
+                      {% else %}
+                        <a href="{% url 'event_edit' event.original_event.id %}" class="text-blue-600 hover:text-blue-800 text-xs px-1" title="Edit recurring event">
+                          <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'event_delete' event.original_event.id %}" class="text-red-600 hover:text-red-800 text-xs px-1" title="Delete recurring event">
+                          <i class="fas fa-trash"></i>
+                        </a>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            
+            <!-- Scheduled Tasks for this time slot (displayed as events) -->
+            {% for calendar_task in calendar_tasks %}
+              {% if calendar_task.calendar_date == day_date %}
+                {% if calendar_task.scheduled_start.hour <= hour and calendar_task.scheduled_end.hour >= hour %}
+                  <div class="priority-task-bg priority-{{ calendar_task.task.priority }} border rounded p-1 mb-1 text-xs">
+                    <div class="font-medium priority-task-text priority-{{ calendar_task.task.priority }}">{{ calendar_task.task.title }}</div>
+                    {% if calendar_task.scheduled_start.hour == hour %}
+                      <div class="priority-task-text priority-{{ calendar_task.task.priority }}">{{ calendar_task.scheduled_start|date:"g:i" }} - {{ calendar_task.scheduled_end|date:"g:i" }}</div>
+                    {% elif calendar_task.scheduled_end.hour == hour %}
+                      <div class="priority-task-text priority-{{ calendar_task.task.priority }}">{{ calendar_task.scheduled_start|date:"g:i" }} - {{ calendar_task.scheduled_end|date:"g:i" }}</div>
+                    {% else %}
+                      <div class="priority-task-text priority-{{ calendar_task.task.priority }}">{{ calendar_task.scheduled_start|date:"g:i" }} - {{ calendar_task.scheduled_end|date:"g:i" }}</div>
+                    {% endif %}
+                    {% if calendar_task.task.project %}
+                      <div class="priority-task-text priority-{{ calendar_task.task.priority }} text-xs">{{ calendar_task.task.project.name }}</div>
+                    {% endif %}
+                    <div class="priority-badge priority-{{ calendar_task.task.priority }} text-xs px-1 py-0.5 rounded mt-1 inline-block">P{{ calendar_task.task.priority }}</div>
+                  </div>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            
+            <!-- Time Slots for this time -->
+            {% for time_slot in time_slots %}
+              {% if day_date.weekday in time_slot.days_of_week %}
+                {% if time_slot.start_time.hour <= hour and time_slot.end_time.hour >= hour %}
+                  <div class="bg-amber-100 border border-amber-300 rounded p-1 mb-1 text-xs relative group">
+                    <div class="font-medium text-amber-900">{{ time_slot.name }}</div>
+                    {% if time_slot.start_time.hour == hour %}
+                      <div class="text-amber-700">{{ time_slot.start_time|date:"g:i" }} - {{ time_slot.end_time|date:"g:i" }}</div>
+                    {% elif time_slot.end_time.hour == hour %}
+                      <div class="text-amber-700">{{ time_slot.start_time|date:"g:i" }} - {{ time_slot.end_time|date:"g:i" }}</div>
+                    {% else %}
+                      <div class="text-amber-700">{{ time_slot.start_time|date:"g:i" }} - {{ time_slot.end_time|date:"g:i" }}</div>
+                    {% endif %}
+                    <div class="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a href="{% url 'time_slot_delete' time_slot.id %}" class="text-red-600 hover:text-red-800 text-xs px-1">
+                        <i class="fas fa-trash"></i>
+                      </a>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Available Tasks for Scheduling -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <h3 class="text-lg font-semibold text-slate-900 mb-4">Available Tasks for Scheduling</h3>
+    <div class="grid gap-3">
+      {% for task in available_tasks %}
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="priority-badge priority-{{ task.priority }} text-xs px-2 py-1 rounded">P{{ task.priority }}</span>
+            <div>
+              <h4 class="font-medium text-slate-900">{{ task.title }}</h4>
+              {% if task.project %}
+                <p class="text-sm text-slate-600">{{ task.project.name }}</p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm text-slate-600">
+            {% if task.estimate_minutes %}
+              <span>{{ task.estimate_minutes }}m</span>
+            {% endif %}
+            {% if task.due_at %}
+              <span>Due: {{ task.due_at|date:"M j" }}</span>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <p class="text-slate-500 text-center py-4">No tasks available for scheduling</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+
+/* Priority-based task background colors for calendar */
+.priority-task-bg.priority-1 { 
+  background-color: #fee2e2; 
+  border-color: #fecaca; 
+}
+.priority-task-bg.priority-2 { 
+  background-color: #fef3c7; 
+  border-color: #fed7aa; 
+}
+.priority-task-bg.priority-3 { 
+  background-color: #dbeafe; 
+  border-color: #bfdbfe; 
+}
+.priority-task-bg.priority-4 { 
+  background-color: #dcfce7; 
+  border-color: #bbf7d0; 
+}
+.priority-task-bg.priority-5 { 
+  background-color: #f3f4f6; 
+  border-color: #e5e7eb; 
+}
+
+/* Priority-based task text colors for calendar */
+.priority-task-text.priority-1 { color: #dc2626; }
+.priority-task-text.priority-2 { color: #d97706; }
+.priority-task-text.priority-3 { color: #2563eb; }
+.priority-task-text.priority-4 { color: #16a34a; }
+.priority-task-text.priority-5 { color: #6b7280; }
+</style>
+{% endblock %}

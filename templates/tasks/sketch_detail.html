@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}{{ sketch.title }} · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">{{ sketch.title }}</h1>
+        <p class="text-slate-600 mt-1">Created {{ sketch.created_at|date:"F j, Y" }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'sketch_edit' sketch.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="fas fa-edit mr-2"></i>Edit
+        </a>
+        <a href="{% url 'sketch_delete' sketch.id %}" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="fas fa-trash mr-2"></i>Delete
+        </a>
+      </div>
+    </div>
+    
+    <!-- Sketch Image -->
+    <div class="mb-6">
+      <div class="border border-slate-200 rounded-lg overflow-hidden">
+        {% if sketch.image_data %}
+          <img src="{{ sketch.image_data }}" alt="{{ sketch.title }}" class="w-full h-auto max-h-96 object-contain">
+        {% else %}
+          <div class="h-64 bg-slate-50 flex items-center justify-center">
+            <div class="text-center text-slate-400">
+              <i class="fas fa-image text-4xl mb-2"></i>
+              <p>No image available</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Sketch Info -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Description -->
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-3">Description</h3>
+        {% if sketch.description %}
+          <p class="text-slate-700 whitespace-pre-wrap">{{ sketch.description }}</p>
+        {% else %}
+          <p class="text-slate-500 italic">No description provided</p>
+        {% endif %}
+      </div>
+      
+      <!-- Assignment Info -->
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-3">Assignment</h3>
+        <div class="space-y-2">
+          {% if sketch.project %}
+            <div class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+              <i class="fas fa-folder text-blue-600"></i>
+              <div>
+                <p class="font-medium text-blue-900">Project</p>
+                <p class="text-sm text-blue-700">{{ sketch.project.name }}</p>
+              </div>
+            </div>
+          {% endif %}
+          
+          {% if sketch.task %}
+            <div class="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+              <i class="fas fa-tasks text-green-600"></i>
+              <div>
+                <p class="font-medium text-green-900">Task</p>
+                <p class="text-sm text-green-700">{{ sketch.task.title }}</p>
+              </div>
+            </div>
+          {% endif %}
+          
+          {% if not sketch.project and not sketch.task %}
+            <p class="text-slate-500 italic">Not assigned to any project or task</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex items-center justify-between pt-6 border-t border-slate-200">
+      <a href="{% url 'sketch_list' %}" class="text-slate-600 hover:text-slate-900">
+        <i class="fas fa-arrow-left mr-2"></i>Back to Sketches
+      </a>
+      
+      <div class="flex items-center gap-2">
+        {% if sketch.project %}
+          <a href="{% url 'project_detail' sketch.project.slug %}" class="text-blue-600 hover:text-blue-700">
+            <i class="fas fa-folder mr-1"></i>View Project
+          </a>
+        {% endif %}
+        {% if sketch.task %}
+          <a href="{% url 'task_detail' sketch.task.id %}" class="text-green-600 hover:text-green-700">
+            <i class="fas fa-tasks mr-1"></i>View Task
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

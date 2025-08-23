@@ -1,41 +1,54 @@
 from rest_framework import serializers
-from .models import Project, Tag, Task, FocusSession, SavedFilter, TaskDependency, LinkAttachment, Attachment
+from .models import Project, Tag, Task, FocusSession, TaskRelationship, Event, TimeSlot, CalendarTask
 
 
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ['id', 'name', 'slug', 'description', 'is_archived', 'created_at', 'updated_at']
+        fields = '__all__'
 
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = ['id', 'name', 'slug', 'color_hex']
+        fields = '__all__'
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    project = serializers.SlugRelatedField(slug_field='slug', queryset=Project.objects.all(), allow_null=True, required=False)
-    tags = serializers.SlugRelatedField(slug_field='slug', queryset=Tag.objects.all(), many=True, required=False)
-
+    project = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all().order_by('priority', 'name'),
+        required=False,
+        allow_null=True
+    )
+    
     class Meta:
         model = Task
-        fields = [
-            'id', 'title', 'description_md', 'status', 'priority',
-            'project', 'tags', 'parent', 'start_at', 'due_at', 'completed_at',
-            'estimate_minutes', 'repeat', 'external_url', 'created_at', 'updated_at'
-        ]
+        fields = '__all__'
 
 
 class FocusSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FocusSession
-        fields = ['id', 'owner', 'task', 'kind', 'started_at', 'ended_at', 'duration_minutes', 'notes', 'created_at']
-        read_only_fields = ['owner', 'created_at']
+        fields = '__all__'
 
 
-class SavedFilterSerializer(serializers.ModelSerializer):
+class TaskRelationshipSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SavedFilter
-        fields = ['id', 'owner', 'name', 'query', 'is_favorite', 'created_at']
-        read_only_fields = ['owner', 'created_at'] 
+        model = TaskRelationship
+        fields = '__all__'
+
+# New calendar serializers
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = '__all__'
+
+class TimeSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TimeSlot
+        fields = '__all__'
+
+class CalendarTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CalendarTask
+        fields = '__all__' 

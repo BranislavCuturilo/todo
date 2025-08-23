@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 {% block title %}Task Mind Map · Solo TODO{% endblock %}
 {% block content %}
 <div class="space-y-6">
@@ -24,140 +25,239 @@
         Task Relationship Graph
       </h2>
       <div class="flex items-center gap-2">
+        <!-- Filter Controls -->
+        <select id="priorityFilter" class="border border-slate-300 rounded px-2 py-1 text-sm">
+          <option value="">All Priorities</option>
+          <option value="1">P1 - Critical</option>
+          <option value="2">P2 - High</option>
+          <option value="3">P3 - Medium</option>
+          <option value="4">P4 - Low</option>
+          <option value="5">P5 - Minimal</option>
+        </select>
+        <select id="statusFilter" class="border border-slate-300 rounded px-2 py-1 text-sm">
+          <option value="">All Status</option>
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="blocked">Blocked</option>
+          <option value="done">Done</option>
+        </select>
+        <select id="projectFilter" class="border border-slate-300 rounded px-2 py-1 text-sm">
+          <option value="">All Projects</option>
+          {% for project in projects %}
+            <option value="{{ project.id }}">{{ project.name }}</option>
+          {% endfor %}
+        </select>
+        <button onclick="resetZoom()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1 rounded text-sm transition-colors">
+          <i class="fas fa-search-minus mr-1"></i>Reset Zoom
+        </button>
         <button onclick="toggleView()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors">
           <i class="fas fa-eye mr-1"></i>Toggle View
         </button>
       </div>
     </div>
 
-    {% if task_graph %}
-      <div id="mind-map-container" class="relative min-h-96 border border-slate-200 rounded-lg p-4 bg-slate-50">
+    <div id="mind-map-container" class="relative bg-slate-50 border border-slate-200 rounded-lg p-4 overflow-hidden cursor-grab" 
+         style="height: 600px;"    
+         onmousedown="startPan(event)" 
+         onmouseup="stopPan()" 
+         onmouseleave="stopPan()">
+      
+      <div id="graph-content" class="transform-gpu">
+        <!-- Task Nodes -->
         {% for task_id, task_data in task_graph.items %}
-          <div class="task-node absolute bg-white border-2 border-slate-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
+          <div class="task-node absolute bg-white border-2 border-slate-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-move" 
                data-task-id="{{ task_id }}" 
-               style="left: {{ forloop.counter0|add:1|multiply:150 }}px; top: {{ forloop.counter0|add:1|multiply:100 }}px; z-index: 10;">
+               data-priority="{{ task_data.task.priority }}"
+               data-status="{{ task_data.task.status }}"
+               data-project="{{ task_data.task.project.id|default:'' }}"
+               onmousedown="startDrag(event, this)"
+               onmouseup="stopDrag()"
+               style="left: {{ forloop.counter0|add:1|multiply:150 }}px; top: {{ forloop.counter0|add:1|multiply:100 }}px; z-index: 10; min-width: 120px;">
             <div class="text-center">
               <h3 class="font-medium text-slate-900 text-sm mb-1">{{ task_data.task.title|truncatechars:20 }}</h3>
               <span class="priority-badge priority-{{ task_data.task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task_data.task.priority }}</span>
-            </div>
-          </div>
-        {% endfor %}
-        
-        <!-- Relationship Lines -->
-        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;">
-          {% for task_id, task_data in task_graph.items %}
-            {% for rel in task_data.outgoing %}
-              <line x1="{{ forloop.parentloop.counter0|add:1|multiply:150|add:75 }}" 
-                    y1="{{ forloop.parentloop.counter0|add:1|multiply:100|add:40 }}" 
-                    x2="{{ forloop.counter0|add:1|multiply:150|add:75 }}" 
-                    y2="{{ forloop.counter0|add:1|multiply:100|add:40 }}" 
-                    stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowhead)"/>
-            {% endfor %}
-          {% endfor %}
-          <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
-            </marker>
-          </defs>
-        </svg>
-      </div>
-    {% else %}
-      <div class="text-center py-12 text-slate-500">
-        <i class="fas fa-project-diagram text-4xl mb-4"></i>
-        <h3 class="text-lg font-medium text-slate-900 mb-2">No task relationships</h3>
-        <p class="text-slate-600 mb-6">Create relationships between tasks to see the mind map visualization.</p>
-        
-        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors">
-          <i class="fas fa-plus"></i>
-          Create Relationships
-        </a>
-      </div>
-    {% endif %}
-  </div>
-
-  <!-- Task List with Relationships -->
-  {% if tasks %}
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-        <i class="fas fa-list text-blue-600"></i>
-        Task Details
-      </h2>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for task in tasks %}
-          <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <div class="flex items-start justify-between mb-3">
-              <h3 class="font-medium text-slate-900 text-sm flex-1 pr-2">{{ task.title }}</h3>
-              <span class="priority-badge priority-{{ task.priority }} text-xs px-1.5 py-0.5 rounded">P{{ task.priority }}</span>
-            </div>
-            
-            {% if task.project %}
-              <div class="flex items-center gap-1 mb-2">
-                <i class="fas fa-folder text-blue-600 text-xs"></i>
-                <span class="text-xs text-blue-700">{{ task.project.name }}</span>
+              <span class="status-badge status-{{ task_data.task.status }} text-xs px-1.5 py-0.5 rounded ml-1">{{ task_data.task.get_status_display|truncatechars:6 }}</span>
+              
+              <div class="flex items-center justify-between mt-2">
+                <!-- View Details Button -->
+                <button onclick="viewTaskDetails('{{ task_id }}')" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded transition-colors">
+                  <i class="fas fa-eye mr-1"></i>Details
+                </button>
               </div>
-            {% endif %}
-            
-            <!-- Relationships -->
-            {% if task_graph|get_item:task.id %}
-              {% with task_data=task_graph|get_item:task.id %}
-                {% if task_data.outgoing or task_data.incoming %}
-                  <div class="space-y-2">
-                    {% if task_data.outgoing %}
-                      <div>
-                        <h4 class="text-xs font-medium text-slate-700 mb-1">Outgoing:</h4>
-                        <div class="space-y-1">
-                          {% for rel in task_data.outgoing %}
-                            <div class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                              {{ rel.get_relationship_type_display }} → {{ rel.to_task.title|truncatechars:15 }}
-                            </div>
-                          {% endfor %}
-                        </div>
-                      </div>
-                    {% endif %}
-                    
-                    {% if task_data.incoming %}
-                      <div>
-                        <h4 class="text-xs font-medium text-slate-700 mb-1">Incoming:</h4>
-                        <div class="space-y-1">
-                          {% for rel in task_data.incoming %}
-                            <div class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                              {{ rel.from_task.title|truncatechars:15 }} → {{ rel.get_relationship_type_display }}
-                            </div>
-                          {% endfor %}
-                        </div>
-                      </div>
-                    {% endif %}
-                  </div>
-                {% endif %}
-              {% endwith %}
-            {% endif %}
-            
-            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200">
-              <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 text-xs">
-                <i class="fas fa-eye mr-1"></i>View
-              </a>
-              <a href="{% url 'task_relationships' task.id %}" class="text-purple-600 hover:text-purple-700 text-xs">
-                <i class="fas fa-link mr-1"></i>Relations
-              </a>
             </div>
           </div>
         {% endfor %}
       </div>
     </div>
+  </div>
+
+  <!-- Task List with Relationships -->
+  {% if tasks %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <i class="fas fa-list text-blue-600"></i>
+          Task Details
+        </h2>
+        <button onclick="showRelationshipForm()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <i class="fas fa-link mr-1"></i>Create Relationship
+        </button>
+      </div>
+
+      <!-- Relationship Creation Form -->
+      <div id="relationshipForm" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+        <h3 class="font-medium text-slate-900 mb-3">Create Task Relationship</h3>
+        <form id="createRelationshipForm" class="space-y-3">
+          {% csrf_token %}
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">From Task</label>
+              <select name="from_task" class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                <option value="">Select Task</option>
+                {% for task in tasks %}
+                  <option value="{{ task.id }}">{{ task.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">To Task</label>
+              <select name="to_task" class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                <option value="">Select Task</option>
+                {% for task in tasks %}
+                  <option value="{{ task.id }}">{{ task.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Relationship Type</label>
+              <select name="relationship_type" class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                <option value="blocks">Blocks</option>
+                <option value="depends_on">Depends On</option>
+                <option value="related_to">Related To</option>
+                <option value="duplicate_of">Duplicate Of</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors">
+              Create Relationship
+            </button>
+            <button type="button" onclick="hideRelationshipForm()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="grid gap-6">
+        {% for task in tasks %}
+          <div class="border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h3 class="text-lg font-semibold text-slate-900">{{ task.title }}</h3>
+                  <div class="flex items-center gap-2">
+                    <span class="priority-badge priority-{{ task.priority }} px-3 py-1 rounded-full text-xs font-medium">P{{ task.priority }}</span>
+                    <span class="status-badge status-{{ task.status }} px-3 py-1 rounded-full text-xs font-medium">{{ task.get_status_display }}</span>
+                  </div>
+                </div>
+                
+                {% if task.description %}
+                  <p class="text-slate-600 mb-3 leading-relaxed">{{ task.description|truncatechars:150 }}</p>
+                {% endif %}
+                
+                <div class="flex items-center gap-4 text-sm text-slate-500">
+                  {% if task.project %}
+                    <span class="flex items-center gap-1">
+                      <i class="fas fa-folder text-purple-500"></i>
+                      {{ task.project.name }}
+                    </span>
+                  {% endif %}
+                  {% if task.due_at %}
+                    <span class="flex items-center gap-1">
+                      <i class="fas fa-calendar text-blue-500"></i>
+                      Due: {{ task.due_at|date:"M d, Y" }}
+                    </span>
+                  {% endif %}
+                  {% if task.created_at %}
+                    <span class="flex items-center gap-1">
+                      <i class="fas fa-clock text-green-500"></i>
+                      Created: {{ task.created_at|date:"M d" }}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <a href="{% url 'task_detail' task.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                  <i class="fas fa-eye mr-1"></i>View Details
+                </a>
+                <a href="{% url 'task_edit' task.id %}" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                  <i class="fas fa-edit mr-1"></i>Edit
+                </a>
+              </div>
+            </div>
+            
+            <!-- Show relationships with enhanced styling -->
+            {% if task_graph|get_item:task.id.outgoing or task_graph|get_item:task.id.incoming %}
+              <div class="mt-4 pt-4 border-t border-slate-200">
+                <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                  <i class="fas fa-link text-purple-500"></i>
+                  Task Relationships
+                </h4>
+                <div class="space-y-2">
+                  {% for rel in task_graph|get_item:task.id.outgoing %}
+                    <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                      <i class="fas fa-arrow-right text-blue-500"></i>
+                      <span class="text-sm font-medium text-slate-700">{{ rel.get_relationship_type_display }}:</span>
+                      <a href="{% url 'task_detail' rel.to_task.id %}" class="text-blue-600 hover:underline font-medium">{{ rel.to_task.title }}</a>
+                    </div>
+                  {% endfor %}
+                  {% for rel in task_graph|get_item:task.id.incoming %}
+                    <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                      <i class="fas fa-arrow-left text-green-500"></i>
+                      <span class="text-sm font-medium text-slate-700">{{ rel.get_relationship_type_display }}:</span>
+                      <a href="{% url 'task_detail' rel.from_task.id %}" class="text-blue-600 hover:underline font-medium">{{ rel.from_task.title }}</a>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+      <i class="fas fa-tasks text-slate-400 text-4xl mb-4"></i>
+      <h3 class="text-lg font-medium text-slate-900 mb-2">No Tasks Found</h3>
+      <p class="text-slate-600 mb-4">Create some tasks to see them in the mind map.</p>
+      <a href="{% url 'task_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+        <i class="fas fa-plus mr-2"></i>Create Task
+      </a>
+    </div>
   {% endif %}
 </div>
 
 <style>
-.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
-.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
-.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
-.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
-.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+.priority-1 { background-color: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.priority-2 { background-color: #fef3c7; color: #d97706; border-color: #fed7aa; }
+.priority-3 { background-color: #dbeafe; color: #2563eb; border-color: #bfdbfe; }
+.priority-4 { background-color: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+.priority-5 { background-color: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+
+.status-todo { background-color: #f1f5f9; color: #475569; }
+.status-in_progress { background-color: #dbeafe; color: #2563eb; }
+.status-blocked { background-color: #fee2e2; color: #dc2626; }
+.status-done { background-color: #dcfce7; color: #16a34a; }
 
 .task-node {
   transition: all 0.3s ease;
-  min-width: 120px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .task-node:hover {
@@ -165,28 +265,676 @@
   border-color: #3b82f6;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
+
+.task-node.dragging {
+  transition: none;
+  transform: scale(1.05);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+  z-index: 30 !important;
+}
+
+/* Priority-based task node colors */
+.task-node[data-priority="1"] {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #f87171;
+}
+
+.task-node[data-priority="2"] {
+  background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+  border-color: #fb923c;
+}
+
+.task-node[data-priority="3"] {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #60a5fa;
+}
+
+.task-node[data-priority="4"] {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #4ade80;
+}
+
+.task-node[data-priority="5"] {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #9ca3af;
+}
+
+#mind-map-container {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 </style>
 
 <script>
+// Global variables for drag and pan functionality
+let isDragging = false;
+let isPanning = false;
+let currentDragElement = null;
+let panStart = { x: 0, y: 0 };
+let currentTransform = { x: 0, y: 0, scale: 1 };
+let dragOffset = { x: 0, y: 0, scale: 1 };
+let preventAutoPositioning = false;
+
+// Pan functionality
+function startPan(event) {
+  if (isDragging || event.target.closest('.task-node')) return;
+  isPanning = true;
+  panStart.x = event.clientX - currentTransform.x;
+  panStart.y = event.clientY - currentTransform.y;
+  document.getElementById('mind-map-container').style.cursor = 'grabbing';
+}
+
+function stopPan() {
+  isPanning = false;
+  document.getElementById('mind-map-container').style.cursor = 'grab';
+}
+
+function resetZoom() {
+  currentTransform = { x: 0, y: 0, scale: 1 };
+  updateTransform();
+}
+
+function updateTransform() {
+  const content = document.getElementById('graph-content');
+  content.style.transform = `translate(${currentTransform.x}px, ${currentTransform.y}px) scale(${currentTransform.scale})`;
+}
+
+// Drag and drop functionality
+function startDrag(event, element) {
+  // Don't start drag if clicking on buttons
+  if (event.target.closest('button')) {
+    return;
+  }
+  
+  event.preventDefault();
+  event.stopPropagation();
+  
+  isDragging = true;
+  currentDragElement = element;
+  preventAutoPositioning = true;
+  
+  const rect = element.getBoundingClientRect();
+  const container = document.getElementById('mind-map-container');
+  const containerRect = container.getBoundingClientRect();
+  
+  // Calculate offset from mouse to element's current position
+  dragOffset.x = event.clientX - rect.left;
+  dragOffset.y = event.clientY - rect.top;
+  dragOffset.scale = currentTransform.scale;
+  
+  element.classList.add('dragging');
+  element.style.zIndex = '30';
+  element.style.transition = 'none';
+  
+  console.log('Drag started for task:', element.getAttribute('data-task-id'));
+}
+
+function stopDrag() {
+  if (currentDragElement) {
+    currentDragElement.classList.remove('dragging');
+    currentDragElement.style.zIndex = '10';
+    currentDragElement.style.transition = '';
+    
+    if (!preventAutoPositioning) {
+      positionRelatedTasks(currentDragElement);
+    }
+    
+    console.log('Drag stopped for task:', currentDragElement.getAttribute('data-task-id'));
+  }
+  isDragging = false;
+  currentDragElement = null;
+  preventAutoPositioning = false;
+}
+
+function viewTaskDetails(taskId) {
+  window.location.href = `/tasks/${taskId}/`;
+}
+
+// Position related tasks - reinitialize all positions
+function positionRelatedTasks(draggedElement) {
+  initializeRelatedTaskPositions();
+}
+
+// Position task based on relationship type - SPECIFIC POSITIONING
+function positionTaskByRelationshipType(mainTask, relatedTask, relationshipType, isFromTask) {
+  const mainLeft = parseInt(mainTask.style.left) || 0;
+  const mainTop = parseInt(mainTask.style.top) || 0;
+  const mainWidth = mainTask.offsetWidth;
+  const mainHeight = mainTask.offsetHeight;
+  
+  let newLeft, newTop;
+  const gap = 1; // 1px gap between tasks in same group
+  
+  // SPECIFIC POSITIONING BY RELATIONSHIP TYPE
+  switch (relationshipType) {
+    case 'blocks':
+      // Task that blocks goes to the LEFT (must be done before the other)
+      newLeft = mainLeft - relatedTask.offsetWidth - gap;
+      newTop = mainTop;
+      break;
+      
+    case 'depends_on':
+      // Task that depends goes to the RIGHT (cannot start without blocking task)
+      newLeft = mainLeft + mainWidth + gap;
+      newTop = mainTop;
+      break;
+      
+    case 'related_to':
+      // Task that precedes goes ABOVE (subtask relationship)
+      newLeft = mainLeft;
+      newTop = mainTop - relatedTask.offsetHeight - gap;
+      break;
+      
+    case 'duplicate_of':
+      // Task that doesn't precede goes BELOW (subtask relationship)
+      newLeft = mainLeft;
+      newTop = mainTop + mainHeight + gap;
+      break;
+      
+    default:
+      // Default side by side
+      if (isFromTask) {
+        newLeft = mainLeft + mainWidth + gap;
+        newTop = mainTop;
+      } else {
+        newLeft = mainLeft - relatedTask.offsetWidth - gap;
+        newTop = mainTop;
+      }
+  }
+  
+  // Check bounds - prevent tasks from going outside visible area
+  const container = document.getElementById('mind-map-container');
+  const containerWidth = container.offsetWidth;
+  const containerHeight = container.offsetHeight;
+  const maxX = containerWidth - relatedTask.offsetWidth;
+  const maxY = containerHeight - relatedTask.offsetHeight;
+  
+  const clampedX = Math.max(0, Math.min(maxX, newLeft));
+  const clampedY = Math.max(0, Math.min(maxY, newTop));
+  
+  // Apply smooth transition
+  relatedTask.style.transition = 'all 0.3s ease';
+  relatedTask.style.left = clampedX + 'px';
+  relatedTask.style.top = clampedY + 'px';
+  
+  // Add visual connection indicator
+  addVisualConnection(mainTask, relatedTask, relationshipType);
+  
+  setTimeout(() => {
+    relatedTask.style.transition = '';
+  }, 300);
+}
+
+// Add visual connection between tasks - SPECIFIC STYLING BY RELATIONSHIP TYPE
+function addVisualConnection(task1, task2, relationshipType) {
+  // Remove existing borders and shadows
+  task1.style.borderLeft = '';
+  task1.style.borderRight = '';
+  task1.style.borderTop = '';
+  task1.style.borderBottom = '';
+  task1.style.boxShadow = '';
+  task2.style.borderLeft = '';
+  task2.style.borderRight = '';
+  task2.style.borderTop = '';
+  task2.style.borderBottom = '';
+  task2.style.boxShadow = '';
+  
+  // Add visual distinction based on relationship type and position
+  switch (relationshipType) {
+    case 'blocks':
+      // LEFT positioning - red borders
+      task1.style.borderLeft = '4px solid #ef4444';
+      task2.style.borderRight = '4px solid #ef4444';
+      task1.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+      task2.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+      break;
+    case 'depends_on':
+      // RIGHT positioning - blue borders
+      task1.style.borderRight = '4px solid #3b82f6';
+      task2.style.borderLeft = '4px solid #3b82f6';
+      task1.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+      task2.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+      break;
+    case 'related_to':
+      // ABOVE positioning - green borders
+      task1.style.borderTop = '4px solid #10b981';
+      task2.style.borderBottom = '4px solid #10b981';
+      task1.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+      task2.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+      break;
+    case 'duplicate_of':
+      // BELOW positioning - orange borders
+      task1.style.borderBottom = '4px solid #f59e0b';
+      task2.style.borderTop = '4px solid #f59e0b';
+      task1.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+      task2.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+      break;
+  }
+}
+
+// Move related tasks together with the dragged task - GROUP MOVEMENT
+function moveRelatedTasksWithDraggedTask(draggedTask, newX, newY) {
+  const taskId = draggedTask.getAttribute('data-task-id');
+  
+  // Find which group this task belongs to
+  const taskGroups = findTaskGroups();
+  let taskGroup = null;
+  
+  for (const group of taskGroups) {
+    if (group.includes(taskId)) {
+      taskGroup = group;
+      break;
+    }
+  }
+  
+  if (!taskGroup || taskGroup.length === 1) {
+    // No relationships or single task - move individually
+    return;
+  }
+  
+  // Calculate the offset from the dragged task's original position
+  const originalLeft = parseInt(draggedTask.style.left) || 0;
+  const originalTop = parseInt(draggedTask.style.top) || 0;
+  const offsetX = newX - originalLeft;
+  const offsetY = newY - originalTop;
+  
+  // Move all tasks in the group by the same offset
+  taskGroup.forEach(groupTaskId => {
+    if (groupTaskId !== taskId) {
+      const groupTask = document.querySelector(`[data-task-id="${groupTaskId}"]`);
+      if (groupTask) {
+        const currentLeft = parseInt(groupTask.style.left) || 0;
+        const currentTop = parseInt(groupTask.style.top) || 0;
+        
+        groupTask.style.transition = 'none';
+        groupTask.style.left = (currentLeft + offsetX) + 'px';
+        groupTask.style.top = (currentTop + offsetY) + 'px';
+      }
+    }
+  });
+}
+
+// Move task maintaining relationship positioning - SPECIFIC POSITIONING
+function moveTaskWithRelationship(mainTask, relatedTask, relationshipType, isFromTask, mainX, mainY) {
+  const gap = 1; // 1px gap between tasks in same group
+  
+  let newLeft, newTop;
+  
+  // Position based on relationship type
+  switch (relationshipType) {
+    case 'blocks':
+      // Task that blocks goes to the LEFT
+      newLeft = mainX - relatedTask.offsetWidth - gap;
+      newTop = mainY;
+      break;
+      
+    case 'depends_on':
+      // Task that depends goes to the RIGHT
+      newLeft = mainX + mainTask.offsetWidth + gap;
+      newTop = mainY;
+      break;
+      
+    case 'related_to':
+      // Task that precedes goes ABOVE
+      newLeft = mainX;
+      newTop = mainY - relatedTask.offsetHeight - gap;
+      break;
+      
+    case 'duplicate_of':
+      // Task that doesn't precede goes BELOW
+      newLeft = mainX;
+      newTop = mainY + mainTask.offsetHeight + gap;
+      break;
+      
+    default:
+      // Default side by side
+      if (isFromTask) {
+        newLeft = mainX + mainTask.offsetWidth + gap;
+        newTop = mainY;
+      } else {
+        newLeft = mainX - relatedTask.offsetWidth - gap;
+        newTop = mainY;
+      }
+  }
+  
+  // Check bounds - prevent tasks from going outside visible area
+  const container = document.getElementById('mind-map-container');
+  const containerWidth = container.offsetWidth;
+  const containerHeight = container.offsetHeight;
+  const maxX = containerWidth - relatedTask.offsetWidth;
+  const maxY = containerHeight - relatedTask.offsetHeight;
+  
+  const clampedX = Math.max(0, Math.min(maxX, newLeft));
+  const clampedY = Math.max(0, Math.min(maxY, newTop));
+  
+  // Apply position without transition for smooth dragging
+  relatedTask.style.transition = 'none';
+  relatedTask.style.left = clampedX + 'px';
+  relatedTask.style.top = clampedY + 'px';
+}
+
+function showRelationshipForm() {
+  document.getElementById('relationshipForm').classList.remove('hidden');
+}
+
+function hideRelationshipForm() {
+  document.getElementById('relationshipForm').classList.add('hidden');
+  document.getElementById('createRelationshipForm').reset();
+}
+
+function createRelationshipViaForm(fromTaskId, toTaskId, relationshipType) {
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  fetch('/api/task-relationships/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify({
+      from_task: fromTaskId,
+      to_task: toTaskId,
+      relationship_type: relationshipType
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Relationship created successfully!');
+      hideRelationshipForm();
+      location.reload();
+    } else {
+      alert('Error creating relationship: ' + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred while creating the relationship.');
+  });
+}
+
+// Filter functionality
+function applyFilters() {
+  const priorityFilter = document.getElementById('priorityFilter').value;
+  const statusFilter = document.getElementById('statusFilter').value;
+  const projectFilter = document.getElementById('projectFilter').value;
+  
+  const taskNodes = document.querySelectorAll('.task-node');
+  taskNodes.forEach(function(node) {
+    let show = true;
+    
+    if (priorityFilter && node.getAttribute('data-priority') !== priorityFilter) {
+      show = false;
+    }
+    
+    if (statusFilter && node.getAttribute('data-status') !== statusFilter) {
+      show = false;
+    }
+    
+    if (projectFilter && node.getAttribute('data-project') !== projectFilter) {
+      show = false;
+    }
+    
+    node.style.display = show ? 'block' : 'none';
+  });
+}
+
+// Initialize positioning for related tasks - GROUP POSITIONING WITH 100px GAP
+function initializeRelatedTaskPositions() {
+  // First, find all task groups
+  const taskGroups = findTaskGroups();
+  
+  // Position each group with 100px gap between groups
+  let currentX = 50; // Start position
+  
+  taskGroups.forEach(group => {
+    // Position tasks within the group based on relationships
+    let groupX = currentX;
+    let groupY = 50;
+    
+    // Find the main task (task with most relationships) to start positioning
+    const mainTaskId = findMainTaskInGroup(group);
+    const mainTaskElement = document.querySelector(`[data-task-id="${mainTaskId}"]`);
+    
+    if (mainTaskElement) {
+      // Position main task
+      mainTaskElement.style.transition = 'all 0.3s ease';
+      mainTaskElement.style.left = groupX + 'px';
+      mainTaskElement.style.top = groupY + 'px';
+      groupX += mainTaskElement.offsetWidth + 1;
+      
+      // Position related tasks based on relationship type
+      const relationships = getRelationshipsForTask(mainTaskId);
+      relationships.forEach(rel => {
+        const relatedTaskId = rel.from === mainTaskId ? rel.to : rel.from;
+        const relatedTaskElement = document.querySelector(`[data-task-id="${relatedTaskId}"]`);
+        
+        if (relatedTaskElement && group.includes(relatedTaskId)) {
+          const isFromTask = rel.from === mainTaskId;
+          positionTaskByRelationshipType(mainTaskElement, relatedTaskElement, rel.type, isFromTask);
+        }
+      });
+    }
+    
+    // Calculate group width for next group positioning
+    let maxGroupX = currentX;
+    group.forEach(taskId => {
+      const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+      if (taskElement) {
+        const taskRight = parseInt(taskElement.style.left) + taskElement.offsetWidth;
+        maxGroupX = Math.max(maxGroupX, taskRight);
+      }
+    });
+    
+    // Move to next group position (100px gap between groups)
+    currentX = maxGroupX + 100;
+  });
+}
+
+// Find the main task in a group (task with most relationships)
+function findMainTaskInGroup(group) {
+  const relationships = [
+    {% for task_id, task_data in task_graph.items %}
+      {% for rel in task_data.outgoing %}
+        { 
+          from: '{{ task_id }}', 
+          to: '{{ rel.to_task.id }}', 
+          type: '{{ rel.relationship_type }}' 
+        },
+      {% endfor %}
+    {% endfor %}
+  ];
+  
+  let mainTask = group[0];
+  let maxRelationships = 0;
+  
+  group.forEach(taskId => {
+    const taskRelationships = relationships.filter(rel => 
+      rel.from === taskId || rel.to === taskId
+    );
+    
+    if (taskRelationships.length > maxRelationships) {
+      maxRelationships = taskRelationships.length;
+      mainTask = taskId;
+    }
+  });
+  
+  return mainTask;
+}
+
+// Get all relationships for a specific task
+function getRelationshipsForTask(taskId) {
+  return [
+    {% for task_id, task_data in task_graph.items %}
+      {% for rel in task_data.outgoing %}
+        { 
+          from: '{{ task_id }}', 
+          to: '{{ rel.to_task.id }}', 
+          type: '{{ rel.relationship_type }}' 
+        },
+      {% endfor %}
+    {% endfor %}
+  ].filter(rel => rel.from === taskId || rel.to === taskId);
+}
+
+// Find task groups based on relationships
+function findTaskGroups() {
+  const relationships = [
+    {% for task_id, task_data in task_graph.items %}
+      {% for rel in task_data.outgoing %}
+        { 
+          from: '{{ task_id }}', 
+          to: '{{ rel.to_task.id }}', 
+          type: '{{ rel.relationship_type }}' 
+        },
+      {% endfor %}
+    {% endfor %}
+  ];
+  
+  const allTaskIds = new Set();
+  const groups = [];
+  const visited = new Set();
+  
+  // Get all task IDs
+  {% for task_id, task_data in task_graph.items %}
+    allTaskIds.add('{{ task_id }}');
+  {% endfor %}
+  
+  // Find connected components (groups)
+  allTaskIds.forEach(taskId => {
+    if (!visited.has(taskId)) {
+      const group = [];
+      const queue = [taskId];
+      
+      while (queue.length > 0) {
+        const currentTaskId = queue.shift();
+        if (!visited.has(currentTaskId)) {
+          visited.add(currentTaskId);
+          group.push(currentTaskId);
+          
+          // Find all related tasks
+          relationships.forEach(rel => {
+            if (rel.from === currentTaskId && !visited.has(rel.to)) {
+              queue.push(rel.to);
+            }
+            if (rel.to === currentTaskId && !visited.has(rel.from)) {
+              queue.push(rel.from);
+            }
+          });
+        }
+      }
+      
+      if (group.length > 0) {
+        groups.push(group);
+      }
+    }
+  });
+  
+  return groups;
+}
+
 function toggleView() {
   const container = document.getElementById('mind-map-container');
   if (container) {
     container.classList.toggle('hidden');
+    if (!container.classList.contains('hidden')) {
+      // Reinitialize positions when showing
+      setTimeout(initializeRelatedTaskPositions, 100);
+    }
   }
 }
 
-// Add click handlers for task nodes
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+  // Add filter event listeners
+  document.getElementById('priorityFilter').addEventListener('change', applyFilters);
+  document.getElementById('statusFilter').addEventListener('change', applyFilters);
+  document.getElementById('projectFilter').addEventListener('change', applyFilters);
+  
+  // Add drag handlers for task nodes
   const taskNodes = document.querySelectorAll('.task-node');
   taskNodes.forEach(function(node) {
-    node.addEventListener('click', function() {
-      const taskId = this.getAttribute('data-task-id');
-      if (taskId) {
-        window.location.href = `/tasks/${taskId}/`;
-      }
+    node.addEventListener('mousedown', function(event) {
+      startDrag(event, this);
+    });
+    
+    node.addEventListener('mouseup', function(event) {
+      stopDrag();
     });
   });
+
+  // Handle relationship form submission
+  const relationshipForm = document.getElementById('createRelationshipForm');
+  if (relationshipForm) {
+    relationshipForm.addEventListener('submit', function(event) {
+      event.preventDefault();
+      
+      const formData = new FormData(this);
+      const fromTask = formData.get('from_task');
+      const toTask = formData.get('to_task');
+      const relationshipType = formData.get('relationship_type');
+      
+      if (fromTask && toTask && relationshipType) {
+        createRelationshipViaForm(fromTask, toTask, relationshipType);
+      }
+    });
+  }
+  
+  // Initialize related task positioning
+  initializeRelatedTaskPositions();
+  setTimeout(initializeRelatedTaskPositions, 100);
+  
+  // Update positioning when window is resized
+  window.addEventListener('resize', function() {
+    setTimeout(initializeRelatedTaskPositions, 100);
+  });
+});
+
+// Mouse move handler for panning, dragging, and connection
+document.addEventListener('mousemove', function(event) {
+  if (isPanning) {
+    currentTransform.x = event.clientX - panStart.x;
+    currentTransform.y = event.clientY - panStart.y;
+    updateTransform();
+  }
+  
+  if (isDragging && currentDragElement) {
+    const container = document.getElementById('mind-map-container');
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate new position directly from mouse position minus offset (accounting for scale)
+    const newX = (event.clientX - dragOffset.x - containerRect.left) / currentTransform.scale;
+    const newY = (event.clientY - dragOffset.y - containerRect.top) / currentTransform.scale;
+    
+    // Keep within container bounds - prevent tasks from going outside visible area
+    const maxX = container.offsetWidth - currentDragElement.offsetWidth;
+    const maxY = container.offsetHeight - currentDragElement.offsetHeight;
+    
+    const clampedX = Math.max(0, Math.min(maxX, newX));
+    const clampedY = Math.max(0, Math.min(maxY, newY));
+    
+    // Apply position immediately for smooth movement
+    currentDragElement.style.left = clampedX + 'px';
+    currentDragElement.style.top = clampedY + 'px';
+    
+    // Move related tasks together with the dragged task
+    moveRelatedTasksWithDraggedTask(currentDragElement, clampedX, clampedY);
+    
+    // Mark that we actually dragged (not just clicked)
+    preventAutoPositioning = false;
+  }
+});
+
+// Wheel handler for zoom
+document.getElementById('mind-map-container').addEventListener('wheel', function(event) {
+  event.preventDefault();
+  const delta = event.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = Math.max(0.1, Math.min(3, currentTransform.scale * delta));
+  currentTransform.scale = newScale;
+  updateTransform();
 });
 </script>
 {% endblock %}
-

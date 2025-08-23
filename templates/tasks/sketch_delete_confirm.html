@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Delete Sketch · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="text-center mb-6">
+      <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+      <h1 class="text-xl font-bold text-slate-900 mb-2">Delete Sketch</h1>
+      <p class="text-slate-600">Are you sure you want to delete "{{ sketch.title }}"?</p>
+    </div>
+    
+    <!-- Sketch Preview -->
+    <div class="mb-6">
+      <div class="border border-slate-200 rounded-lg overflow-hidden">
+        {% if sketch.image_data %}
+          <img src="{{ sketch.image_data }}" alt="{{ sketch.title }}" class="w-full h-auto max-h-48 object-contain">
+        {% else %}
+          <div class="h-32 bg-slate-50 flex items-center justify-center">
+            <div class="text-center text-slate-400">
+              <i class="fas fa-image text-2xl mb-1"></i>
+              <p class="text-sm">No preview</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Sketch Info -->
+    <div class="mb-6 text-sm text-slate-600">
+      <p><strong>Title:</strong> {{ sketch.title }}</p>
+      <p><strong>Created:</strong> {{ sketch.created_at|date:"F j, Y" }}</p>
+      {% if sketch.project %}
+        <p><strong>Project:</strong> {{ sketch.project.name }}</p>
+      {% endif %}
+      {% if sketch.task %}
+        <p><strong>Task:</strong> {{ sketch.task.title }}</p>
+      {% endif %}
+    </div>
+    
+    <!-- Warning -->
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <p class="text-red-800 text-sm">
+        <i class="fas fa-info-circle mr-1"></i>
+        This action cannot be undone. The sketch will be permanently deleted.
+      </p>
+    </div>
+    
+    <!-- Actions -->
+    <form method="post" class="space-y-3">
+      {% csrf_token %}
+      <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors">
+        <i class="fas fa-trash mr-2"></i>Delete Sketch
+      </button>
+      <a href="{% url 'sketch_detail' sketch.id %}" class="block w-full bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-lg transition-colors text-center">
+        <i class="fas fa-times mr-2"></i>Cancel
+      </a>
+    </form>
+  </div>
+</div>
+{% endblock %}

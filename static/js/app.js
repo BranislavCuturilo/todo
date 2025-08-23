@@ -18,21 +18,25 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeUI() {
-  // Add loading states to buttons (excluding login form)
+  // Add loading states to buttons (excluding login form) without blocking submit
   const buttons = document.querySelectorAll('button[type="submit"]');
   buttons.forEach(button => {
-    // Skip if button is in login form
     const form = button.closest('form');
     if (form && (form.action.includes('login') || form.id === 'loginForm')) {
       return;
     }
-    
-    button.addEventListener('click', function() {
-      if (!this.disabled) {
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
-      }
-    });
+
+    if (form) {
+      form.addEventListener('submit', function() {
+        if (!button.disabled) {
+          // Defer disabling until submit is already in progress
+          setTimeout(() => {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+          }, 0);
+        }
+      });
+    }
   });
 
   // Add keyboard shortcuts

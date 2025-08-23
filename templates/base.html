@@ -23,20 +23,17 @@
         <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/">
           <i class="fas fa-home"></i> Dashboard
         </a>
-        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/inbox/">
-          <i class="fas fa-inbox"></i> Inbox
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="{% url 'all_tasks' %}">
+          <i class="fas fa-list"></i> All Tasks
         </a>
-        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/today/">
-          <i class="fas fa-calendar-day"></i> Today
-        </a>
-        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/upcoming/">
-          <i class="fas fa-calendar-week"></i> Upcoming
-        </a>
-        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/done/">
-          <i class="fas fa-check-circle"></i> Done
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="{% url 'calendar' %}">
+          <i class="fas fa-calendar"></i> Calendar
         </a>
         <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="/projects/">
           <i class="fas fa-folder"></i> Projects
+        </a>
+        <a class="px-3 py-2 rounded-lg hover:bg-sky-50 hover:text-sky-700 transition-colors flex items-center gap-2" href="{% url 'sketch_list' %}">
+          <i class="fas fa-paint-brush"></i> Sketches
         </a>
       </nav>
       <div class="ml-auto flex items-center gap-3">
@@ -46,13 +43,19 @@
         </button>
         <div class="flex items-center gap-2">
           <span class="text-sm text-slate-600">{{ user.username }}</span>
-          <a href="{% url 'logout' %}" class="text-sm text-slate-600 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-100 transition-colors">
-            <i class="fas fa-sign-out-alt"></i>
-          </a>
+          <form method="post" action="{% url 'logout' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="text-sm text-slate-600 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-100 transition-colors">
+              <i class="fas fa-sign-out-alt"></i>
+            </button>
+          </form>
         </div>
         {% else %}
         <a href="{% url 'login' %}" class="text-sm text-sky-600 hover:text-sky-700 px-3 py-2 rounded-lg hover:bg-sky-50 transition-colors">
           <i class="fas fa-sign-in-alt"></i> Login
+        </a>
+        <a href="{% url 'register' %}" class="text-sm bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-lg transition-colors">
+          <i class="fas fa-user-plus"></i> Register
         </a>
         {% endif %}
       </div>
@@ -103,9 +106,9 @@
             <i class="fas fa-flag mr-2"></i>Priority
           </label>
           <select name="priority" id="quickAddPriority" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent">
-            <option value="3">P3 - Medium</option>
             <option value="1">P1 - Critical</option>
             <option value="2">P2 - High</option>
+            <option value="3" selected>P3 - Medium</option>
             <option value="4">P4 - Low</option>
             <option value="5">P5 - Minimal</option>
           </select>
@@ -116,7 +119,13 @@
           <label class="block text-sm font-medium text-slate-700 mb-2">
             <i class="fas fa-calendar mr-2"></i>Due Date
           </label>
-          <input type="datetime-local" name="due_at" id="quickAddDueDate" class="w-full border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" />
+          <div class="flex gap-2">
+            <input type="datetime-local" name="due_at" id="quickAddDueDate" class="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:border-transparent" />
+            <button type="button" onclick="setDefaultTime()" class="px-3 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors text-sm">
+              <i class="fas fa-clock"></i>
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Default time: 23:59 • Click clock to reset</p>
         </div>
 
         <!-- Estimate -->
@@ -159,6 +168,43 @@
   </div>
 
   <script src="{% static 'js/app.js' %}"></script>
+  
+  <!-- Global Priority Badge Styles -->
+  <style>
+    /* Priority badge colors - consistent across all templates */
+    .priority-badge.priority-1 { 
+      background-color: #fee2e2; 
+      color: #dc2626; 
+      border-color: #fecaca; 
+    }
+    .priority-badge.priority-2 { 
+      background-color: #fef3c7; 
+      color: #d97706; 
+      border-color: #fed7aa; 
+    }
+    .priority-badge.priority-3 { 
+      background-color: #dbeafe; 
+      color: #2563eb; 
+      border-color: #bfdbfe; 
+    }
+    .priority-badge.priority-4 { 
+      background-color: #dcfce7; 
+      color: #16a34a; 
+      border-color: #bbf7d0; 
+    }
+    .priority-badge.priority-5 { 
+      background-color: #f3f4f6; 
+      color: #6b7280; 
+      border-color: #e5e7eb; 
+    }
+    
+    /* Status badge colors */
+    .status-badge.status-todo { background-color: #f1f5f9; color: #475569; }
+    .status-badge.status-in_progress { background-color: #dbeafe; color: #2563eb; }
+    .status-badge.status-blocked { background-color: #fee2e2; color: #dc2626; }
+    .status-badge.status-done { background-color: #dcfce7; color: #16a34a; }
+  </style>
+  
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
@@ -173,6 +219,39 @@
 
     function closeQuickAdd() {
       document.getElementById('quickAddModal').classList.add('hidden');
+    }
+
+    // Set default time to 23:59 when date is selected
+    document.getElementById('quickAddDueDate').addEventListener('change', function() {
+      const dateInput = this;
+      const selectedDate = dateInput.value;
+      
+      if (selectedDate && !selectedDate.includes('T')) {
+        // If only date is selected, add time 23:59
+        const dateWithTime = selectedDate + 'T23:59';
+        dateInput.value = dateWithTime;
+      }
+    });
+
+    // Function to set default time (23:59) for selected date
+    function setDefaultTime() {
+      const dateInput = document.getElementById('quickAddDueDate');
+      const selectedDate = dateInput.value;
+      
+      if (selectedDate) {
+        // Extract date part and add 23:59 time
+        const datePart = selectedDate.split('T')[0];
+        const dateWithTime = datePart + 'T23:59';
+        dateInput.value = dateWithTime;
+      } else {
+        // If no date selected, set today's date with 23:59
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateWithTime = `${year}-${month}-${day}T23:59`;
+        dateInput.value = dateWithTime;
+      }
     }
 
     // Close modal on outside click

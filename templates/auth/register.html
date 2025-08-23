@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Register · Solo TODO{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <div class="text-center">
+      <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-sky-100">
+        <i class="fas fa-user-plus text-sky-600 text-xl"></i>
+      </div>
+      <h2 class="mt-6 text-3xl font-bold text-slate-900">Create your account</h2>
+      <p class="mt-2 text-sm text-slate-600">
+        Join Solo TODO to organize your tasks and boost your productivity
+      </p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Username -->
+        <div>
+          <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-user mr-2"></i>Username
+          </label>
+          {{ form.username }}
+          {% if form.username.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.username.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.username.help_text %}
+            <p class="mt-1 text-sm text-slate-500">{{ form.username.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-lock mr-2"></i>Password
+          </label>
+          {{ form.password1 }}
+          {% if form.password1.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.password1.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.password1.help_text %}
+            <div class="mt-1 text-sm text-slate-500">
+              {{ form.password1.help_text|safe }}
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            <i class="fas fa-lock mr-2"></i>Confirm Password
+          </label>
+          {{ form.password2 }}
+          {% if form.password2.errors %}
+            <div class="mt-1 text-sm text-red-600">
+              {% for error in form.password2.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if form.password2.help_text %}
+            <p class="mt-1 text-sm text-slate-500">{{ form.password2.help_text }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Submit Button -->
+        <div>
+          <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+            <i class="fas fa-user-plus"></i>
+            Create Account
+          </button>
+        </div>
+      </form>
+
+      <!-- Login Link -->
+      <div class="mt-6 text-center">
+        <p class="text-sm text-slate-600">
+          Already have an account? 
+          <a href="{% url 'login' %}" class="font-medium text-sky-600 hover:text-sky-700 transition-colors">
+            Sign in here
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Style form fields */
+input[type="text"], input[type="password"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+input[type="text"]:focus, input[type="password"]:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+/* Error styling */
+input[type="text"].error, input[type="password"].error {
+  border-color: #dc2626;
+}
+
+/* Help text styling */
+.helptext {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.helptext ul {
+  margin-top: 0.25rem;
+  padding-left: 1rem;
+}
+
+.helptext li {
+  margin-bottom: 0.125rem;
+}
+</style>
+{% endblock %}

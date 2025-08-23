@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% block title %}Create Event · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">{{ title }}</h1>
+      <p class="text-slate-600 mt-1">{% if event %}Edit existing event{% else %}Add a new event to your calendar{% endif %}</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <div>
+        <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+          Event Title
+        </label>
+        {{ form.title }}
+        {% if form.title.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.title.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div>
+        <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+          Description
+        </label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.description.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="{{ form.start_time.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            Start Time
+          </label>
+          {{ form.start_time }}
+          {% if form.start_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.start_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+        
+        <div>
+          <label for="{{ form.end_time.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            End Time
+          </label>
+          {{ form.end_time }}
+          {% if form.end_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.end_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Recurring Event Section -->
+      <div class="border border-slate-200 rounded-lg p-6 bg-slate-50">
+        <div class="mb-4">
+          <label for="{{ form.is_recurring.id_for_label }}" class="flex items-center">
+            {{ form.is_recurring }}
+            <span class="ml-2 text-sm font-medium text-slate-700">Recurring Event</span>
+          </label>
+          <p class="text-sm text-slate-500 mt-1">Check this if the event repeats regularly</p>
+          {% if form.is_recurring.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.is_recurring.errors.0 }}</p>
+          {% endif %}
+        </div>
+        
+        <div id="recurrence-options" class="hidden space-y-4">
+          <!-- Recurrence Type -->
+          <div>
+            <label for="{{ form.recurrence_type.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+              Recurrence Type
+            </label>
+            {{ form.recurrence_type }}
+            {% if form.recurrence_type.errors %}
+              <p class="text-red-600 text-sm mt-1">{{ form.recurrence_type.errors.0 }}</p>
+            {% endif %}
+          </div>
+          
+          <!-- Recurrence Interval -->
+          <div>
+            <label for="{{ form.recurrence_interval.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+              Repeat Every
+            </label>
+            <div class="flex items-center gap-2">
+              {{ form.recurrence_interval }}
+              <span id="interval-label" class="text-sm text-slate-600">day(s)</span>
+            </div>
+            {% if form.recurrence_interval.errors %}
+              <p class="text-red-600 text-sm mt-1">{{ form.recurrence_interval.errors.0 }}</p>
+            {% endif %}
+          </div>
+          
+          <!-- Weekdays for Weekly Recurrence -->
+          <div id="weekdays-section" class="hidden">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              Repeat on Days
+            </label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {{ form.weekdays }}
+            </div>
+            {% if form.weekdays.errors %}
+              <p class="text-red-600 text-sm mt-1">{{ form.weekdays.errors.0 }}</p>
+            {% endif %}
+          </div>
+          
+          <!-- End Conditions -->
+          <div class="border-t border-slate-200 pt-4">
+            <h4 class="text-sm font-medium text-slate-700 mb-3">End Conditions</h4>
+            <div class="space-y-3">
+              <div>
+                <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                  End Date (Optional)
+                </label>
+                {{ form.end_date }}
+                {% if form.end_date.errors %}
+                  <p class="text-red-600 text-sm mt-1">{{ form.end_date.errors.0 }}</p>
+                {% endif %}
+              </div>
+              
+              <div>
+                <label for="{{ form.max_occurrences.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                  Maximum Occurrences (Optional)
+                </label>
+                {{ form.max_occurrences }}
+                {% if form.max_occurrences.errors %}
+                  <p class="text-red-600 text-sm mt-1">{{ form.max_occurrences.errors.0 }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center justify-between pt-6 border-t border-slate-200">
+        <a href="{% url 'calendar' %}" class="text-slate-600 hover:text-slate-900">
+          <i class="fas fa-arrow-left mr-2"></i>Back to Calendar
+        </a>
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+          {% if event %}Update Event{% else %}Create Event{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  input[type="text"], input[type="datetime-local"], input[type="date"], input[type="number"], textarea, select {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+  input[type="checkbox"] {
+    @apply w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500;
+  }
+  .checkbox-group {
+    @apply flex items-center gap-2 p-2 border border-slate-200 rounded-lg hover:bg-slate-50;
+  }
+  .checkbox-group input[type="checkbox"] {
+    @apply w-4 h-4;
+  }
+  .checkbox-group label {
+    @apply text-sm font-medium text-slate-700 cursor-pointer;
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isRecurringCheckbox = document.getElementById('{{ form.is_recurring.id_for_label }}');
+    const recurrenceOptions = document.getElementById('recurrence-options');
+    const recurrenceType = document.getElementById('{{ form.recurrence_type.id_for_label }}');
+    const weekdaysSection = document.getElementById('weekdays-section');
+    const intervalLabel = document.getElementById('interval-label');
+    
+    function toggleRecurrenceOptions() {
+        if (isRecurringCheckbox.checked) {
+            recurrenceOptions.classList.remove('hidden');
+        } else {
+            recurrenceOptions.classList.add('hidden');
+        }
+    }
+    
+    function updateIntervalLabel() {
+        const type = recurrenceType.value;
+        const labels = {
+            'daily': 'day(s)',
+            'weekly': 'week(s)',
+            'monthly': 'month(s)',
+            'yearly': 'year(s)'
+        };
+        intervalLabel.textContent = labels[type] || 'day(s)';
+    }
+    
+    function toggleWeekdaysSection() {
+        if (recurrenceType.value === 'weekly') {
+            weekdaysSection.classList.remove('hidden');
+        } else {
+            weekdaysSection.classList.add('hidden');
+        }
+    }
+    
+    // Event listeners
+    isRecurringCheckbox.addEventListener('change', toggleRecurrenceOptions);
+    recurrenceType.addEventListener('change', function() {
+        updateIntervalLabel();
+        toggleWeekdaysSection();
+    });
+    
+    // Initial state
+    toggleRecurrenceOptions();
+    updateIntervalLabel();
+    toggleWeekdaysSection();
+});
+</script>
+{% endblock %}

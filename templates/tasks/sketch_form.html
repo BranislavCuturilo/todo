@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} · Solo TODO{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">{{ title }}</h1>
+      <p class="text-slate-600 mt-1">{% if sketch %}Edit your sketch{% else %}Create a new sketch{% endif %}</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <!-- Canvas Section -->
+      <div class="border border-slate-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold text-slate-900 mb-4">Drawing Canvas</h3>
+        
+        <!-- Canvas Controls -->
+        <div class="flex flex-wrap items-center gap-4 mb-4">
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-slate-700">Color:</label>
+            <input type="color" id="colorPicker" value="#000000" class="w-10 h-8 border border-slate-300 rounded">
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-slate-700">Brush Size:</label>
+            <input type="range" id="brushSize" min="1" max="20" value="3" class="w-20">
+            <span id="brushSizeValue" class="text-sm text-slate-600">3px</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="clearCanvas" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+              <i class="fas fa-trash mr-1"></i>Clear
+            </button>
+            <button type="button" id="undoBtn" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1 rounded text-sm">
+              <i class="fas fa-undo mr-1"></i>Undo
+            </button>
+          </div>
+        </div>
+        
+        <!-- Canvas Container -->
+        <div class="flex justify-center">
+          <div class="border-2 border-slate-300 rounded-lg overflow-hidden">
+            <canvas id="sketchCanvas" width="600" height="400" class="bg-white cursor-crosshair"></canvas>
+          </div>
+        </div>
+        
+        <!-- Hidden input for image data -->
+        <input type="hidden" name="image_data" id="imageData" value="{% if sketch.image_data %}{{ sketch.image_data }}{% endif %}">
+      </div>
+      
+      <!-- Form Fields -->
+      <div>
+        <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+          Sketch Title
+        </label>
+        {{ form.title }}
+        {% if form.title.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.title.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div>
+        <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+          Description (Optional)
+        </label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ form.description.errors.0 }}</p>
+        {% endif %}
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="{{ form.project.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            Assign to Project (Optional)
+          </label>
+          {{ form.project }}
+          {% if form.project.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.project.errors.0 }}</p>
+          {% endif %}
+        </div>
+        
+        <div>
+          <label for="{{ form.task.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+            Assign to Task (Optional)
+          </label>
+          {{ form.task }}
+          {% if form.task.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ form.task.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <div class="flex items-center justify-between pt-6 border-t border-slate-200">
+        <a href="{% url 'sketch_list' %}" class="text-slate-600 hover:text-slate-900">
+          <i class="fas fa-arrow-left mr-2"></i>Back to Sketches
+        </a>
+        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors">
+          {% if sketch %}Update Sketch{% else %}Create Sketch{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  input[type="text"], textarea, select {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500;
+  }
+  
+  #sketchCanvas {
+    touch-action: none;
+  }
+  
+  @media (max-width: 768px) {
+    #sketchCanvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('sketchCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    const clearCanvas = document.getElementById('clearCanvas');
+    const undoBtn = document.getElementById('undoBtn');
+    const imageData = document.getElementById('imageData');
+    
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let history = [];
+    let historyIndex = -1;
+    
+    // Initialize canvas
+    function initCanvas() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveState();
+    }
+    
+    // Save canvas state
+    function saveState() {
+        historyIndex++;
+        if (historyIndex < history.length) {
+            history = history.slice(0, historyIndex);
+        }
+        history.push(canvas.toDataURL());
+    }
+    
+    // Load canvas state
+    function loadState() {
+        if (historyIndex >= 0 && historyIndex < history.length) {
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = history[historyIndex];
+        }
+    }
+    
+    // Update brush size display
+    function updateBrushSize() {
+        brushSizeValue.textContent = brushSize.value + 'px';
+    }
+    
+    // Drawing functions
+    function startDrawing(e) {
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        lastX = clientX - rect.left;
+        lastY = clientY - rect.top;
+    }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        const currentX = clientX - rect.left;
+        const currentY = clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = colorPicker.value;
+        ctx.lineWidth = brushSize.value;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        
+        lastX = currentX;
+        lastY = currentY;
+    }
+    
+    function stopDrawing() {
+        if (isDrawing) {
+            isDrawing = false;
+            saveState();
+            updateImageData();
+        }
+    }
+    
+    // Update hidden input with canvas data
+    function updateImageData() {
+        imageData.value = canvas.toDataURL();
+    }
+    
+    // Event listeners
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // Touch events for mobile
+    canvas.addEventListener('touchstart', startDrawing);
+    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', stopDrawing);
+    
+    // Controls
+    clearCanvas.addEventListener('click', function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveState();
+        updateImageData();
+    });
+    
+    undoBtn.addEventListener('click', function() {
+        if (historyIndex > 0) {
+            historyIndex--;
+            loadState();
+            updateImageData();
+        }
+    });
+    
+    brushSize.addEventListener('input', updateBrushSize);
+    
+    // Load existing sketch if editing
+    {% if sketch.image_data %}
+        const existingImage = new Image();
+        existingImage.onload = function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(existingImage, 0, 0);
+            saveState();
+        };
+        existingImage.src = '{{ sketch.image_data }}';
+    {% else %}
+        initCanvas();
+    {% endif %}
+    
+    // Update image data on form submit
+    document.querySelector('form').addEventListener('submit', function() {
+        updateImageData();
+    });
+    
+    // Responsive canvas
+    function resizeCanvas() {
+        if (window.innerWidth <= 768) {
+            canvas.width = window.innerWidth - 40;
+            canvas.height = 300;
+        } else {
+            canvas.width = 600;
+            canvas.height = 400;
+        }
+        initCanvas();
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% block title %}All Tasks · Solo TODO{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-900">All Tasks</h1>
+      <p class="text-slate-600 mt-1">View and manage all your tasks organized by projects</p>
+    </div>
+    <a href="{% url 'task_create' %}" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+      <i class="fas fa-plus"></i> New Task
+    </a>
+  </div>
+
+  <!-- Filters Bar -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+    <div class="flex flex-wrap items-center gap-4">
+      <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+        <i class="fas fa-filter"></i> Filters
+      </h3>
+      
+      <form method="get" class="flex flex-wrap items-center gap-3 flex-1">
+        <!-- Priority Filter -->
+        <select name="priority" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+          <option value="">All Priorities</option>
+          <option value="1" {% if current_filters.priority == '1' %}selected{% endif %}>P1 - Critical</option>
+          <option value="2" {% if current_filters.priority == '2' %}selected{% endif %}>P2 - High</option>
+          <option value="3" {% if current_filters.priority == '3' %}selected{% endif %}>P3 - Medium</option>
+          <option value="4" {% if current_filters.priority == '4' %}selected{% endif %}>P4 - Low</option>
+          <option value="5" {% if current_filters.priority == '5' %}selected{% endif %}>P5 - Minimal</option>
+        </select>
+        
+        <!-- Project Filter -->
+        <select name="project" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+          <option value="">All Projects</option>
+          {% for project in projects %}
+            <option value="{{ project.id }}" {% if current_filters.project == project.id|stringformat:"s" %}selected{% endif %}>{{ project.name }}</option>
+          {% endfor %}
+        </select>
+        
+        <!-- Status Filter -->
+        <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent">
+          <option value="">All Status</option>
+          <option value="todo" {% if current_filters.status == 'todo' %}selected{% endif %}>To Do</option>
+          <option value="in_progress" {% if current_filters.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+          <option value="blocked" {% if current_filters.status == 'blocked' %}selected{% endif %}>Blocked</option>
+          <option value="done" {% if current_filters.status == 'done' %}selected{% endif %}>Done</option>
+        </select>
+        
+        <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+          <i class="fas fa-search mr-2"></i>Apply
+        </button>
+        
+        {% if current_filters.priority or current_filters.project or current_filters.status %}
+          <a href="{% url 'all_tasks' %}" class="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm">
+            <i class="fas fa-times mr-2"></i>Clear
+          </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Tasks by Project -->
+  <div class="space-y-8">
+    {% for project, tasks in tasks_by_project.items %}
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="p-6 border-b border-slate-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold text-slate-900">
+                {% if project %}
+                  <i class="fas fa-folder text-blue-600 mr-2"></i>{{ project.name }}
+                {% else %}
+                  <i class="fas fa-inbox text-slate-600 mr-2"></i>No Project
+                {% endif %}
+              </h2>
+              <p class="text-sm text-slate-600 mt-1">{{ tasks.count }} tasks</p>
+            </div>
+            {% if project %}
+              <a href="{% url 'project_detail' project.slug %}" class="text-sky-600 hover:text-sky-700 text-sm">
+                <i class="fas fa-external-link-alt mr-1"></i>View Project
+              </a>
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="p-6">
+          <div class="grid gap-4">
+            {% for task in tasks %}
+              <div class="task-card bg-slate-50 border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex-1">
+                    <h3 class="font-medium text-slate-900 text-lg">{{ task.title }}</h3>
+                    {% if task.description %}
+                      <p class="text-slate-600 text-sm mt-1 line-clamp-2">{{ task.description }}</p>
+                    {% endif %}
+                  </div>
+                  <div class="flex items-center gap-2 ml-4">
+                    <span class="priority-badge priority-{{ task.priority }} text-xs px-2 py-1 rounded-full">P{{ task.priority }}</span>
+                    <span class="status-badge status-{{ task.status }} text-xs px-2 py-1 rounded-full">{{ task.get_status_display }}</span>
+                  </div>
+                </div>
+                
+                <div class="flex items-center justify-between text-sm text-slate-600">
+                  <div class="flex items-center gap-4">
+                    {% if task.due_at %}
+                      <span class="flex items-center gap-1">
+                        <i class="fas fa-calendar text-slate-400"></i>
+                        {{ task.due_at|date:"M j, Y" }}
+                        {% if task.due_at|date:"H:i" != "00:00" %}
+                          at {{ task.due_at|date:"g:i A" }}
+                        {% endif %}
+                      </span>
+                    {% endif %}
+                    {% if task.estimate_minutes %}
+                      <span class="flex items-center gap-1">
+                        <i class="fas fa-clock text-slate-400"></i>
+                        {{ task.estimate_minutes }}m
+                      </span>
+                    {% endif %}
+                    {% if task.tags.all %}
+                      <div class="flex items-center gap-1">
+                        <i class="fas fa-tags text-slate-400"></i>
+                        {% for tag in task.tags.all %}
+                          <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-xs">{{ tag.name }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  
+                  <div class="flex items-center gap-2">
+                    <a href="{% url 'task_detail' task.id %}" class="text-sky-600 hover:text-sky-700 p-1">
+                      <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{% url 'task_edit' task.id %}" class="text-amber-600 hover:text-amber-700 p-1">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <button onclick="snoozeTask({{ task.id }})" class="text-purple-600 hover:text-purple-700 p-1">
+                      <i class="fas fa-clock"></i>
+                    </button>
+                    <button onclick="startFocusSession({{ task.id }})" class="text-emerald-600 hover:text-emerald-700 p-1">
+                      <i class="fas fa-play"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="text-center py-8 text-slate-500">
+                <i class="fas fa-inbox text-3xl mb-3"></i>
+                <p class="text-lg">No tasks found</p>
+                <p class="text-sm">Try adjusting your filters or create a new task</p>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="text-center py-12">
+        <i class="fas fa-tasks text-4xl text-slate-400 mb-4"></i>
+        <h2 class="text-xl font-semibold text-slate-900 mb-2">No tasks found</h2>
+        <p class="text-slate-600 mb-6">Get started by creating your first task</p>
+        <a href="{% url 'task_create' %}" class="bg-sky-600 hover:bg-sky-700 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2">
+          <i class="fas fa-plus"></i> Create Task
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+.priority-badge.priority-1 { background-color: #fef2f2; color: #dc2626; }
+.priority-badge.priority-2 { background-color: #fff7ed; color: #ea580c; }
+.priority-badge.priority-3 { background-color: #fefce8; color: #ca8a04; }
+.priority-badge.priority-4 { background-color: #f0f9ff; color: #0284c7; }
+.priority-badge.priority-5 { background-color: #f8fafc; color: #64748b; }
+
+.status-badge.status-todo { background-color: #f1f5f9; color: #475569; }
+.status-badge.status-in_progress { background-color: #dbeafe; color: #1d4ed8; }
+.status-badge.status-blocked { background-color: #fef2f2; color: #dc2626; }
+.status-badge.status-done { background-color: #dcfce7; color: #16a34a; }
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task-card {
+  transition: all 0.2s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-1px);
+}
+</style>
+
+<script>
+function snoozeTask(taskId) {
+  const minutes = prompt('Snooze for how many minutes?', '30');
+  if (minutes && !isNaN(minutes)) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/tasks/${taskId}/snooze/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const minutesInput = document.createElement('input');
+    minutesInput.type = 'hidden';
+    minutesInput.name = 'minutes';
+    minutesInput.value = minutes;
+    
+    form.appendChild(csrfInput);
+    form.appendChild(minutesInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function startFocusSession(taskId) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/focus/start/';
+  
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  const kindInput = document.createElement('input');
+  kindInput.type = 'hidden';
+  kindInput.name = 'kind';
+  kindInput.value = 'work';
+  
+  const taskInput = document.createElement('input');
+  taskInput.type = 'hidden';
+  taskInput.name = 'task_id';
+  taskInput.value = taskId;
+  
+  form.appendChild(csrfInput);
+  form.appendChild(kindInput);
+  form.appendChild(taskInput);
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
+{% endblock %}

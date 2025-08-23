@@ -1,87 +1,159 @@
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django.utils import timezone
-from rest_framework import viewsets, permissions, decorators, response, status
-from rest_framework.views import APIView
-from rest_framework.routers import DefaultRouter
+from datetime import datetime, timedelta
+from django.db.models import Q
 
-from .models import Project, Tag, Task, FocusSession, SavedFilter
-from .serializers import ProjectSerializer, TagSerializer, TaskSerializer, FocusSessionSerializer, SavedFilterSerializer
-from .utils import parse_quick_add
-from .scheduling import shift_due_dates
-
+from .models import Project, Tag, Task, FocusSession, TaskRelationship, Event, TimeSlot, CalendarTask
+from .serializers import (
+    ProjectSerializer, TagSerializer, TaskSerializer, FocusSessionSerializer, 
+    TaskRelationshipSerializer, EventSerializer, TimeSlotSerializer, CalendarTaskSerializer
+)
 
 class IsAuth(permissions.IsAuthenticated):
     pass
 
-
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = [IsAuth]
-    lookup_field = 'slug'
-    filterset_fields = ['is_archived']
-    search_fields = ['name', 'description']
-    ordering_fields = ['name', 'created_at']
-
+    ordering_fields = ['name', 'created_at', 'priority']
+    
+    def get_queryset(self):
+        return Project.objects.filter(user=self.request.user).order_by('priority', 'name')
 
 class TagViewSet(viewsets.ModelViewSet):
-    queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsAuth]
-    lookup_field = 'slug'
-    search_fields = ['name']
-    ordering_fields = ['name']
-
+    
+    def get_queryset(self):
+        return Tag.objects.all()
 
 class TaskViewSet(viewsets.ModelViewSet):
-    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuth]
-    filterset_fields = ['status', 'priority', 'project', 'tags']
-    search_fields = ['title', 'description_md']
-    ordering_fields = ['priority', 'due_at', 'start_at', 'created_at']
-
-    @decorators.action(detail=False, methods=['post'], url_path='quick-add')
-    def quick_add(self, request):
-        text = request.data.get('text', '')
-        task = parse_quick_add(text)
-        return response.Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
-
+    ordering_fields = ['title', 'created_at', 'due_at', 'priority']
+    
+    def get_queryset(self):
+        return Task.objects.filter(user=self.request.user)
 
 class FocusSessionViewSet(viewsets.ModelViewSet):
     serializer_class = FocusSessionSerializer
     permission_classes = [IsAuth]
-
+    
     def get_queryset(self):
-        return FocusSession.objects.filter(owner=self.request.user).order_by('-started_at')
+        return FocusSession.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-
-class SavedFilterViewSet(viewsets.ModelViewSet):
-    serializer_class = SavedFilterSerializer
+class TaskRelationshipViewSet(viewsets.ModelViewSet):
+    serializer_class = TaskRelationshipSerializer
     permission_classes = [IsAuth]
-
+    
     def get_queryset(self):
-        return SavedFilter.objects.filter(owner=self.request.user)
+        return TaskRelationship.objects.filter(from_task__user=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+# New calendar viewsets
+class EventViewSet(viewsets.ModelViewSet):
+    serializer_class = EventSerializer
+    permission_classes = [IsAuth]
+    
+    def get_queryset(self):
+        return Event.objects.filter(user=self.request.user)
 
+class TimeSlotViewSet(viewsets.ModelViewSet):
+    serializer_class = TimeSlotSerializer
+    permission_classes = [IsAuth]
+    
+    def get_queryset(self):
+        return TimeSlot.objects.filter(user=self.request.user)
+
+class CalendarTaskViewSet(viewsets.ModelViewSet):
+    serializer_class = CalendarTaskSerializer
+    permission_classes = [IsAuth]
+    
+    def get_queryset(self):
+        return CalendarTask.objects.filter(user=self.request.user)
+
+# API Views
+from rest_framework.views import APIView
 
 class ShiftScheduleView(APIView):
     permission_classes = [IsAuth]
+    
+    def post(self, request):
+        """Shift task schedule by specified minutes"""
+        minutes = request.data.get('minutes', 30)
+        task_id = request.data.get('task_id')
+        
+        try:
+            task = Task.objects.get(id=task_id, user=request.user)
+            if task.due_at:
+                task.due_at += timedelta(minutes=int(minutes))
+                task.save()
+                return Response({'success': True})
+        except Task.DoesNotExist:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({'error': 'Invalid request'}, status=status.HTTP_400_BAD_REQUEST)
+
+class TaskRelationshipView(APIView):
+    permission_classes = [IsAuth]
+    
+    def post(self, request):
+        """Create a new task relationship"""
+        from_task_id = request.data.get('from_task_id')
+        to_task_id = request.data.get('to_task_id')
+        relationship_type = request.data.get('relationship_type')
+        
+        try:
+            from_task = Task.objects.get(id=from_task_id, user=request.user)
+            to_task = Task.objects.get(id=to_task_id, user=request.user)
+            
+            relationship, created = TaskRelationship.objects.get_or_create(
+                from_task=from_task,
+                to_task=to_task,
+                relationship_type=relationship_type
+            )
+            
+            return Response({
+                'success': True,
+                'created': created,
+                'relationship_id': relationship.id
+            })
+        except Task.DoesNotExist:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class ProjectPriorityView(APIView):
+    permission_classes = [IsAuth]
 
     def post(self, request):
-        minutes = int(request.data.get('minutes', 0))
-        scope = request.data.get('scope', 'today')
-        num = shift_due_dates(minutes=minutes, scope=scope)
-        return response.Response({'shifted': num})
+        """Update project priorities via drag and drop reordering"""
+        project_orders = request.data.get('project_orders', [])
 
+        try:
+            for order_data in project_orders:
+                project_id = order_data.get('project_id')
+                new_priority = order_data.get('priority')
+
+                if project_id is not None and new_priority is not None:
+                    project = Project.objects.get(id=project_id)
+                    project.priority = new_priority
+                    project.save()
+
+            return Response({'success': True, 'message': 'Project priorities updated successfully'})
+        except Project.DoesNotExist:
+            return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+# Router setup
+from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('projects', ProjectViewSet)
-router.register('tags', TagViewSet)
-router.register('tasks', TaskViewSet)
+router.register('projects', ProjectViewSet, basename='project')
+router.register('tags', TagViewSet, basename='tag')
+router.register('tasks', TaskViewSet, basename='task')
 router.register('focus-sessions', FocusSessionViewSet, basename='focus-session')
-router.register('saved-filters', SavedFilterViewSet, basename='saved-filter') 
+router.register('task-relationships', TaskRelationshipViewSet, basename='task-relationship')
+router.register('events', EventViewSet, basename='event')
+router.register('time-slots', TimeSlotViewSet, basename='time-slot')
+router.register('calendar-tasks', CalendarTaskViewSet, basename='calendar-task') 

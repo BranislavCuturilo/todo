@@ -1,0 +1,21 @@
+[Unit]
+Description=Todo Django Application
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/todo
+Environment="PATH=/var/www/todo/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=solo_todo.settings_production"
+ExecStart=/var/www/todo/venv/bin/gunicorn --config gunicorn.conf.py solo_todo.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -34,6 +34,9 @@
         <a href="{% url 'task_edit' task.id %}" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
           <i class="fas fa-edit"></i> Edit
         </a>
+        <a href="{% url 'task_delete' task.id %}" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+          <i class="fas fa-trash"></i> Delete
+        </a>
       </div>
     </div>
 
@@ -68,6 +71,68 @@
           </h3>
           <div class="prose max-w-none">
             <pre class="whitespace-pre-wrap text-slate-700 bg-slate-50 p-4 rounded-lg">{{ task.description_md }}</pre>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Sketches -->
+      {% if task.sketch_set.exists %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <i class="fas fa-paint-brush text-purple-600"></i> Sketches ({{ task.sketch_set.count }})
+            </h3>
+            <a href="{% url 'sketch_create' %}?task={{ task.id }}" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors">
+              <i class="fas fa-plus mr-1"></i>Add Sketch
+            </a>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for sketch in task.sketch_set.all %}
+              <div class="border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                <!-- Sketch Preview -->
+                <div class="aspect-square bg-slate-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                  {% if sketch.image_data %}
+                    <img src="{{ sketch.image_data }}" alt="{{ sketch.title }}" class="w-full h-full object-contain">
+                  {% else %}
+                    <div class="text-slate-400 text-center">
+                      <i class="fas fa-image text-2xl mb-1"></i>
+                      <p class="text-xs">No preview</p>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <!-- Sketch Info -->
+                <h4 class="font-medium text-slate-900 mb-1 line-clamp-1">{{ sketch.title }}</h4>
+                {% if sketch.description %}
+                  <p class="text-sm text-slate-600 mb-2 line-clamp-2">{{ sketch.description }}</p>
+                {% endif %}
+                
+                <!-- Actions -->
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500">{{ sketch.created_at|date:"M j, Y" }}</span>
+                  <div class="flex items-center gap-1">
+                    <a href="{% url 'sketch_detail' sketch.id %}" class="text-blue-600 hover:text-blue-700 text-sm">
+                      <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{% url 'sketch_edit' sketch.id %}" class="text-slate-600 hover:text-slate-700 text-sm">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <!-- No Sketches - Show Add Button -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="text-center">
+            <i class="fas fa-paint-brush text-slate-400 text-4xl mb-4"></i>
+            <h3 class="text-lg font-semibold text-slate-900 mb-2">No Sketches Yet</h3>
+            <p class="text-slate-600 mb-4">Create a sketch to visualize your ideas for this task</p>
+            <a href="{% url 'sketch_create' %}?task={{ task.id }}" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+              <i class="fas fa-plus"></i>Create Sketch
+            </a>
           </div>
         </div>
       {% endif %}
