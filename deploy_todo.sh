@@ -129,3 +129,4 @@ echo "2. Update DNS records to point todo.emikon.rs to 185.119.90.175"
 echo "3. Test the application"
 echo ""
 echo "🎉 Deployment complete!"
+

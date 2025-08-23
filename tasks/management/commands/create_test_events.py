@@ -62,3 +62,4 @@ class Command(BaseCommand):
         self.stdout.write(f"Created monthly event: {monthly_event.title}")
         
         self.stdout.write("Test events created successfully!")
+

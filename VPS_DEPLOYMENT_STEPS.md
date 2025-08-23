@@ -228,3 +228,4 @@ Every push to main branch will automatically deploy to your VPS! 🚀
 - **App Logs**: `sudo journalctl -u todo -f`
 - **Nginx Logs**: `sudo tail -f /var/log/nginx/access.log`
 - **Backup Logs**: Check `/var/www/todo/backups/` directory
+

@@ -95,3 +95,4 @@ Sve fajlove možete koristiti za:
 - **Shared Hosting** - With modifications
 
 Aplikacija je potpuno spremna za produkciju! 🚀
+

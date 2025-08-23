@@ -15,3 +15,4 @@ class Command(BaseCommand):
                 'Copy this key to your .env file as SECRET_KEY=your-key-here'
             )
         )
+

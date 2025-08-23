@@ -92,3 +92,4 @@ class Command(BaseCommand):
             self.stdout.write(f"Scheduled task: {task.title} at {start_time.strftime('%H:%M')}")
         
         self.stdout.write("Test tasks created and scheduled successfully!")
+

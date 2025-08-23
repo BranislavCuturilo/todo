@@ -74,3 +74,4 @@ class Command(BaseCommand):
             self.stdout.write(f"Created sketch: {sketch.title}")
         
         self.stdout.write("Test sketches created successfully!")
+

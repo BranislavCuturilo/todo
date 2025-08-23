@@ -130,3 +130,4 @@ echo "2. Update DNS records to point todo.emikon.rs to this server"
 echo "3. Test the application"
 echo ""
 echo "🎉 Deployment complete!"
+
