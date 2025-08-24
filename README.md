@@ -12,7 +12,7 @@ A comprehensive task management application built with Django, featuring recurri
 - **User Authentication**: Secure login, register, and logout functionality
 - **Priority Colors**: Visual task prioritization with color coding
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
-
+#
 ## Quick Start with Docker (SQLite)
 
 ### Prerequisites
