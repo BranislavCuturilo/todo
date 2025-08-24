@@ -6,6 +6,9 @@ echo "🚀 Starting SQLite Todo App Deployment..."
 # Check if backup exists
 if [ -f "backup/db.sqlite3.backup" ]; then
     echo "✅ Backup database found - will be restored on startup"
+    # Restore backup
+    cp backup/db.sqlite3.backup db.sqlite3
+    chmod 644 db.sqlite3
 else
     echo "⚠️  No backup database found - will create new database"
 fi
