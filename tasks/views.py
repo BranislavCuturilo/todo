@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.text import slugify
 from datetime import datetime, timedelta
 import json
+import pytz
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
@@ -377,38 +378,7 @@ def regenerate_calendar(request):
                 dependency_graph[rel.from_task.id].append(rel.to_task.id)
                 task_dependencies[rel.from_task.id].append(rel.to_task.id)
         
-        # Topological sort to respect dependencies
-        def topological_sort():
-            in_degree = {task_id: 0 for task_id in dependency_graph}
-            
-            # Calculate in-degree for each task
-            for task_id, deps in dependency_graph.items():
-                for dep_id in deps:
-                    in_degree[dep_id] += 1
-            
-            # Find tasks with no dependencies
-            queue = [task_id for task_id, degree in in_degree.items() if degree == 0]
-            sorted_tasks = []
-            
-            while queue:
-                current_task_id = queue.pop(0)
-                sorted_tasks.append(current_task_id)
-                
-                # Reduce in-degree for dependent tasks
-                for dep_id in dependency_graph[current_task_id]:
-                    in_degree[dep_id] -= 1
-                    if in_degree[dep_id] == 0:
-                        queue.append(dep_id)
-            
-            return sorted_tasks
-        
-        # Get topologically sorted task IDs
-        sorted_task_ids = topological_sort()
-        
-        # Create task lookup
-        task_lookup = {task.id: task for task in tasks}
-        
-        # Calculate optimization scores for tasks
+        # Calculate optimization scores for tasks (similar to dashboard)
         for task in tasks:
             # Base score starts with priority (lower number = higher priority)
             score = task.priority * 10
@@ -431,16 +401,8 @@ def regenerate_calendar(request):
             
             task.optimization_score = score
         
-        # Sort tasks by dependency order first, then by optimization score
-        def sort_key(task_id):
-            task = task_lookup[task_id]
-            # Primary sort by dependency order
-            dep_order = sorted_task_ids.index(task_id)
-            # Secondary sort by optimization score (lower score = higher priority)
-            return (dep_order, task.optimization_score)
-        
-        # Sort tasks respecting dependencies
-        sorted_tasks = sorted(tasks, key=lambda t: sort_key(t.id))
+        # Sort tasks by optimization score (lower score = higher priority)
+        sorted_tasks = sorted(tasks, key=lambda x: x.optimization_score)
         
         # Calculate total task duration
         total_task_duration = sum(task.estimate_minutes or 60 for task in sorted_tasks)
@@ -454,8 +416,11 @@ def regenerate_calendar(request):
         # Get events
         events = Event.objects.filter(user=request.user)
         
-        # Start scheduling from current time, not beginning of day
-        current_datetime = timezone.now()
+        # Get Belgrade timezone
+        belgrade_tz = pytz.timezone('Europe/Belgrade')
+        
+        # Start scheduling from current time in Belgrade timezone
+        current_datetime = timezone.now().astimezone(belgrade_tz)
         current_date = current_datetime.date()
         current_time = current_datetime.time()
         
@@ -463,11 +428,13 @@ def regenerate_calendar(request):
         if current_time < work_start:
             current_time = work_start
             current_datetime = datetime.combine(current_date, current_time)
+            current_datetime = belgrade_tz.localize(current_datetime)
         # If current time is after work end, start from next day
         elif current_time >= work_end:
             current_date += timedelta(days=1)
             current_time = work_start
             current_datetime = datetime.combine(current_date, current_time)
+            current_datetime = belgrade_tz.localize(current_datetime)
         
         # Track daily usage to avoid overloading
         daily_usage = {}
@@ -475,8 +442,9 @@ def regenerate_calendar(request):
         # Track when each task is scheduled to respect dependencies
         task_scheduled_times = {}
         
-        # Schedule tasks respecting dependencies
+        # Schedule tasks in priority order, respecting dependencies
         scheduled_task_ids = set()
+        max_attempts_per_task = 30  # Try for 30 days per task
         max_passes = len(sorted_tasks)  # Prevent infinite loops
         
         for pass_num in range(max_passes):
@@ -502,7 +470,7 @@ def regenerate_calendar(request):
                         break
                 
                 if not dependencies_satisfied:
-                    # Skip this task for now, it will be scheduled in a later pass
+                    # Skip this task for now, it will be scheduled later
                     continue
                 
                 # If we have dependencies, start after the latest dependency ends
@@ -516,21 +484,13 @@ def regenerate_calendar(request):
                         current_date += timedelta(days=1)
                         current_time = work_start
                         current_datetime = datetime.combine(current_date, current_time)
-                # Note: We don't reset current_datetime for tasks without dependencies
-                # They will continue from where the last task left off
-                # But we need to ensure current_datetime is properly set
-                else:
-                    # For tasks without dependencies, use the current_datetime from the outer scope
-                    # which should be maintained from the previous task
-                    current_date = current_datetime.date()
-                    current_time = current_datetime.time()
+                        current_datetime = belgrade_tz.localize(current_datetime)
                 
                 # Find available slot for this task
                 scheduled = False
                 attempts = 0
-                max_attempts = 30  # Try for 30 days
                 
-                while not scheduled and attempts < max_attempts:
+                while not scheduled and attempts < max_attempts_per_task:
                     # Check if we can fit this task in the current day
                     day_events = events.filter(start_time__date=current_date)
                     day_time_slots = [ts for ts in time_slots if current_date.weekday() in ts.days_of_week]
@@ -570,17 +530,20 @@ def regenerate_calendar(request):
                                 current_date += timedelta(days=1)
                                 current_time = work_start
                                 current_datetime = datetime.combine(current_date, current_time)
+                                current_datetime = belgrade_tz.localize(current_datetime)
                     
                     if not scheduled:
                         # Move to next day
                         current_date += timedelta(days=1)
                         current_time = work_start
                         current_datetime = datetime.combine(current_date, current_time)
+                        current_datetime = belgrade_tz.localize(current_datetime)
                         attempts += 1
                 
                 if not scheduled:
-                    # If couldn't schedule after 30 days, schedule at the end of the last day
+                    # If couldn't schedule after max attempts, schedule at the end of the last day
                     end_datetime = datetime.combine(current_date, work_end) - timedelta(minutes=task_duration)
+                    end_datetime = belgrade_tz.localize(end_datetime)
                     CalendarTask.objects.create(
                         task=task,
                         scheduled_start=end_datetime,
@@ -588,7 +551,7 @@ def regenerate_calendar(request):
                         calendar_date=current_date,
                         user=request.user
                     )
-                    task_scheduled_times[task.id] = datetime.combine(current_date, work_end)
+                    task_scheduled_times[task.id] = belgrade_tz.localize(datetime.combine(current_date, work_end))
                     scheduled_task_ids.add(task.id)
                     tasks_scheduled_this_pass += 1
                     
@@ -601,6 +564,7 @@ def regenerate_calendar(request):
                     current_date += timedelta(days=1)
                     current_time = work_start
                     current_datetime = datetime.combine(current_date, current_time)
+                    current_datetime = belgrade_tz.localize(current_datetime)
             
             # If no tasks were scheduled in this pass, we're done
             if tasks_scheduled_this_pass == 0:
