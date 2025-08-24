@@ -1,40 +1,33 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=todo
-      - POSTGRES_USER=todo
-      - POSTGRES_PASSWORD=todo_password
-    ports:
-      - "5432:5432"
-
   web:
     build: .
     command: >
-      sh -c "python manage.py migrate &&
-             python manage.py collectstatic --noinput &&
-             gunicorn --bind 0.0.0.0:8000 --workers 3 solo_todo.wsgi:application"
+      sh -c "
+        if [ -f /app/backup/db.sqlite3.backup ]; then
+          echo 'Restoring database from backup...'
+          cp /app/backup/db.sqlite3.backup /app/db.sqlite3
+          chown appuser:appuser /app/db.sqlite3
+        fi &&
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn --bind 0.0.0.0:8000 --workers 3 solo_todo.wsgi:application
+      "
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - sqlite_data:/app
+      - ./backup:/app/backup:ro
     ports:
       - "8001:8000"
     environment:
       - SECRET_KEY=your-super-secret-key-here-change-this
       - DEBUG=False
       - ALLOWED_HOSTS=localhost,127.0.0.1
-      - DB_NAME=todo
-      - DB_USER=todo
-      - DB_PASSWORD=todo_password
-      - DB_HOST=db
-      - DB_PORT=5432
-    depends_on:
-      - db
+      - DB_ENGINE=sqlite3
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
@@ -46,8 +39,9 @@ services:
       - "80:80"
     depends_on:
       - web
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
   static_volume:
   media_volume:
+  sqlite_data:
