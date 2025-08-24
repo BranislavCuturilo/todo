@@ -337,7 +337,7 @@ def calendar_view(request):
 
 @login_required
 def regenerate_calendar(request):
-    """Regenerate calendar schedule for tasks with smart optimization"""
+    """Regenerate calendar schedule for tasks with smart optimization and relationship support"""
     if request.method == 'POST':
         # Clear existing calendar tasks
         CalendarTask.objects.filter(user=request.user).delete()
@@ -357,6 +357,57 @@ def regenerate_calendar(request):
             status__in=['todo', 'in_progress']
         ).order_by('priority', 'due_at')
         
+        # Build dependency graph
+        dependency_graph = {}
+        task_dependencies = {}
+        
+        for task in tasks:
+            dependency_graph[task.id] = []
+            task_dependencies[task.id] = []
+        
+        # Get all relationships
+        relationships = TaskRelationship.objects.filter(
+            from_task__in=tasks,
+            to_task__in=tasks
+        )
+        
+        for rel in relationships:
+            if rel.relationship_type == 'depends_on':
+                # task A depends on task B means A cannot start until B is done
+                dependency_graph[rel.from_task.id].append(rel.to_task.id)
+                task_dependencies[rel.from_task.id].append(rel.to_task.id)
+        
+        # Topological sort to respect dependencies
+        def topological_sort():
+            in_degree = {task_id: 0 for task_id in dependency_graph}
+            
+            # Calculate in-degree for each task
+            for task_id, deps in dependency_graph.items():
+                for dep_id in deps:
+                    in_degree[dep_id] += 1
+            
+            # Find tasks with no dependencies
+            queue = [task_id for task_id, degree in in_degree.items() if degree == 0]
+            sorted_tasks = []
+            
+            while queue:
+                current_task_id = queue.pop(0)
+                sorted_tasks.append(current_task_id)
+                
+                # Reduce in-degree for dependent tasks
+                for dep_id in dependency_graph[current_task_id]:
+                    in_degree[dep_id] -= 1
+                    if in_degree[dep_id] == 0:
+                        queue.append(dep_id)
+            
+            return sorted_tasks
+        
+        # Get topologically sorted task IDs
+        sorted_task_ids = topological_sort()
+        
+        # Create task lookup
+        task_lookup = {task.id: task for task in tasks}
+        
         # Calculate optimization scores for tasks
         for task in tasks:
             # Base score starts with priority (lower number = higher priority)
@@ -374,13 +425,24 @@ def regenerate_calendar(request):
             else:
                 score += 5  # Default duration score
             
+            # Add dependency factor (tasks with more dependencies get higher priority)
+            score -= len(task_dependencies[task.id]) * 5
+            
             task.optimization_score = score
         
-        # Sort tasks by optimization score
-        tasks = sorted(tasks, key=lambda x: x.optimization_score)
+        # Sort tasks by dependency order first, then by optimization score
+        def sort_key(task_id):
+            task = task_lookup[task_id]
+            # Primary sort by dependency order
+            dep_order = sorted_task_ids.index(task_id)
+            # Secondary sort by optimization score
+            return (dep_order, task.optimization_score)
+        
+        # Sort tasks respecting dependencies
+        sorted_tasks = sorted(tasks, key=lambda t: sort_key(t.id))
         
         # Calculate total task duration
-        total_task_duration = sum(task.estimate_minutes or 60 for task in tasks)
+        total_task_duration = sum(task.estimate_minutes or 60 for task in sorted_tasks)
         
         # Estimate how many days we need (with 70% capacity per day)
         estimated_days_needed = max(1, int(total_task_duration / daily_capacity_minutes) + 1)
@@ -391,70 +453,164 @@ def regenerate_calendar(request):
         # Get events
         events = Event.objects.filter(user=request.user)
         
-        # Start scheduling from today
-        current_date = timezone.now().date()
+        # Start scheduling from current time, not beginning of day
+        current_datetime = timezone.now()
+        current_date = current_datetime.date()
+        current_time = current_datetime.time()
+        
+        # If current time is before work start, use work start
+        if current_time < work_start:
+            current_time = work_start
+        # If current time is after work end, start from next day
+        elif current_time >= work_end:
+            current_date += timedelta(days=1)
+            current_time = work_start
         
         # Track daily usage to avoid overloading
         daily_usage = {}
         
-        # Schedule tasks day by day with smart distribution
-        for i, task in enumerate(tasks):
-            task_duration = task.estimate_minutes or 60  # Default 1 hour
+        # Track when each task is scheduled to respect dependencies
+        task_scheduled_times = {}
+        
+        # Schedule tasks respecting dependencies
+        scheduled_task_ids = set()
+        max_passes = len(sorted_tasks)  # Prevent infinite loops
+        
+        for pass_num in range(max_passes):
+            tasks_scheduled_this_pass = 0
             
-            # Calculate target day based on task position and total days needed
-            target_day_offset = int(i * estimated_days_needed / len(tasks))
-            target_date = timezone.now().date() + timedelta(days=target_day_offset)
-            
-            # Start from target date, but allow flexibility
-            current_date = target_date
-            
-            # Find available slot for this task
-            scheduled = False
-            attempts = 0
-            max_attempts = 30  # Try for 30 days
-            
-            while not scheduled and attempts < max_attempts:
-                # Check if we can fit this task in the current day
-                day_events = events.filter(start_time__date=current_date)
-                day_time_slots = [ts for ts in time_slots if current_date.weekday() in ts.days_of_week]
+            for task in sorted_tasks:
+                if task.id in scheduled_task_ids:
+                    continue  # Already scheduled
                 
-                # Calculate available time for this day
-                available_time = _calculate_available_time(
-                    current_date, work_start, work_end, day_events, day_time_slots
-                )
+                task_duration = task.estimate_minutes or 60  # Default 1 hour
                 
-                # Check current day usage
-                current_day_usage = daily_usage.get(current_date, 0)
-                remaining_capacity = daily_capacity_minutes - current_day_usage
+                # Check if all dependencies are satisfied
+                dependencies_satisfied = True
+                latest_dependency_end = None
                 
-                # Check if task fits in available time and capacity
-                if available_time >= task_duration and remaining_capacity >= task_duration:
-                    # Try to schedule the task
-                    scheduled = _schedule_task_in_day(
-                        task, current_date, work_start, work_end, 
-                        day_events, day_time_slots, task_duration, request.user
+                for dep_id in task_dependencies[task.id]:
+                    if dep_id in task_scheduled_times:
+                        dep_end = task_scheduled_times[dep_id]
+                        if latest_dependency_end is None or dep_end > latest_dependency_end:
+                            latest_dependency_end = dep_end
+                    else:
+                        dependencies_satisfied = False
+                        break
+                
+                if not dependencies_satisfied:
+                    # Skip this task for now, it will be scheduled in a later pass
+                    continue
+                
+                # If we have dependencies, start after the latest dependency ends
+                if latest_dependency_end:
+                    current_datetime = latest_dependency_end
+                    current_date = current_datetime.date()
+                    current_time = current_datetime.time()
+                    
+                    # If dependency ended after work hours, start next day
+                    if current_time >= work_end:
+                        current_date += timedelta(days=1)
+                        current_time = work_start
+                        current_datetime = datetime.combine(current_date, current_time)
+                else:
+                    # No dependencies, use the current datetime from the outer scope
+                    current_datetime = timezone.now()
+                    current_date = current_datetime.date()
+                    current_time = current_datetime.time()
+                    
+                    # If current time is before work start, use work start
+                    if current_time < work_start:
+                        current_time = work_start
+                        current_datetime = datetime.combine(current_date, current_time)
+                    # If current time is after work end, start from next day
+                    elif current_time >= work_end:
+                        current_date += timedelta(days=1)
+                        current_time = work_start
+                        current_datetime = datetime.combine(current_date, current_time)
+                
+                # Find available slot for this task
+                scheduled = False
+                attempts = 0
+                max_attempts = 30  # Try for 30 days
+                
+                while not scheduled and attempts < max_attempts:
+                    # Check if we can fit this task in the current day
+                    day_events = events.filter(start_time__date=current_date)
+                    day_time_slots = [ts for ts in time_slots if current_date.weekday() in ts.days_of_week]
+                    
+                    # Calculate available time for this day
+                    available_time = _calculate_available_time(
+                        current_date, work_start, work_end, day_events, day_time_slots
                     )
                     
-                    if scheduled:
-                        # Update daily usage
-                        daily_usage[current_date] = current_day_usage + task_duration
+                    # Check current day usage
+                    current_day_usage = daily_usage.get(current_date, 0)
+                    remaining_capacity = daily_capacity_minutes - current_day_usage
+                    
+                    # Check if task fits in available time and capacity
+                    if available_time >= task_duration and remaining_capacity >= task_duration:
+                        # Try to schedule the task starting from current time
+                        scheduled = _schedule_task_in_day_from_time(
+                            task, current_date, current_time, work_end, 
+                            day_events, day_time_slots, task_duration, request.user
+                        )
+                        
+                        if scheduled:
+                            # Update daily usage
+                            daily_usage[current_date] = current_day_usage + task_duration
+                            # Record when this task ends for dependency tracking
+                            task_scheduled_times[task.id] = current_datetime + timedelta(minutes=task_duration)
+                            scheduled_task_ids.add(task.id)
+                            tasks_scheduled_this_pass += 1
+                            
+                            # Update current_datetime for next task
+                            current_datetime = task_scheduled_times[task.id]
+                            current_date = current_datetime.date()
+                            current_time = current_datetime.time()
+                            
+                            # If task ended after work hours, move to next day
+                            if current_time >= work_end:
+                                current_date += timedelta(days=1)
+                                current_time = work_start
+                                current_datetime = datetime.combine(current_date, current_time)
+                    
+                    if not scheduled:
+                        # Move to next day
+                        current_date += timedelta(days=1)
+                        current_time = work_start
+                        current_datetime = datetime.combine(current_date, current_time)
+                        attempts += 1
                 
                 if not scheduled:
-                    # Move to next day
+                    # If couldn't schedule after 30 days, schedule at the end of the last day
+                    end_datetime = datetime.combine(current_date, work_end) - timedelta(minutes=task_duration)
+                    CalendarTask.objects.create(
+                        task=task,
+                        scheduled_start=end_datetime,
+                        scheduled_end=datetime.combine(current_date, work_end),
+                        calendar_date=current_date,
+                        user=request.user
+                    )
+                    task_scheduled_times[task.id] = datetime.combine(current_date, work_end)
+                    scheduled_task_ids.add(task.id)
+                    tasks_scheduled_this_pass += 1
+                    
+                    # Update current_datetime for next task
+                    current_datetime = task_scheduled_times[task.id]
+                    current_date = current_datetime.date()
+                    current_time = current_datetime.time()
+                    
+                    # Move to next day since this task ended at work end
                     current_date += timedelta(days=1)
-                    attempts += 1
+                    current_time = work_start
+                    current_datetime = datetime.combine(current_date, current_time)
             
-            if not scheduled:
-                # If couldn't schedule after 30 days, schedule at the end of the last day
-                CalendarTask.objects.create(
-                    task=task,
-                    scheduled_start=datetime.combine(current_date, work_end) - timedelta(minutes=task_duration),
-                    scheduled_end=datetime.combine(current_date, work_end),
-                    calendar_date=current_date,
-                    user=request.user
-                )
+            # If no tasks were scheduled in this pass, we're done
+            if tasks_scheduled_this_pass == 0:
+                break
         
-        messages.success(request, 'Calendar regenerated successfully with smart optimization!')
+        messages.success(request, 'Calendar regenerated successfully with smart optimization and dependency support!')
         return redirect('calendar')
     
     return redirect('calendar')
@@ -486,6 +642,63 @@ def _schedule_task_in_day(task, date, work_start, work_end, events, time_slots, 
     """Try to schedule a task within a specific day"""
     current_time = work_start
     
+    while current_time < work_end:
+        # Calculate end time for this task
+        end_time = datetime.combine(date, current_time) + timedelta(minutes=task_duration)
+        end_time = end_time.time()
+        
+        # Check if task would end after work hours - if so, move to next day
+        if end_time > work_end:
+            return False
+        
+        # Check if this time slot conflicts with events
+        conflicts_with_events = False
+        for event in events:
+            event_start = event.start_time.time()
+            event_end = event.end_time.time()
+            if (current_time < event_end and end_time > event_start):
+                conflicts_with_events = True
+                break
+        
+        if conflicts_with_events:
+            # Move to after this event
+            for event in events:
+                if current_time < event.end_time.time():
+                    current_time = event.end_time.time()
+                    # Check if we're still within work hours after moving
+                    if current_time >= work_end:
+                        return False
+                    break
+            continue
+        
+        # Check if this time slot conflicts with time slots
+        conflicts_with_slots = False
+        for time_slot in time_slots:
+            if (current_time < time_slot.end_time and end_time > time_slot.start_time):
+                conflicts_with_slots = True
+                current_time = time_slot.end_time
+                # Check if we're still within work hours after moving
+                if current_time >= work_end:
+                    return False
+                break
+        
+        if conflicts_with_slots:
+            continue
+        
+        # Found available slot - schedule the task
+        CalendarTask.objects.create(
+            task=task,
+            scheduled_start=datetime.combine(date, current_time),
+            scheduled_end=datetime.combine(date, current_time) + timedelta(minutes=task_duration),
+            calendar_date=date,
+            user=user
+        )
+        return True
+    
+    return False
+
+def _schedule_task_in_day_from_time(task, date, current_time, work_end, events, time_slots, task_duration, user):
+    """Try to schedule a task starting from a specific time within a day"""
     while current_time < work_end:
         # Calculate end time for this task
         end_time = datetime.combine(date, current_time) + timedelta(minutes=task_duration)
@@ -1261,30 +1474,36 @@ def task_delete(request, task_id):
 
 @login_required
 def mark_task_done(request, task_id):
-    """Mark a task as done via AJAX"""
+    """Mark a task as done"""
     if request.method == 'POST':
         task = get_object_or_404(Task, id=task_id, user=request.user)
         task.status = 'done'
         task.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'Task "{task.title}" marked as done!',
-            'task_id': task.id,
-            'status': 'done'
-        })
-    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+        messages.success(request, f'Task "{task.title}" marked as done!')
+        
+        # Redirect back to the referring page or dashboard
+        referrer = request.META.get('HTTP_REFERER')
+        if referrer and 'localhost' in referrer or '127.0.0.1' in referrer or 'your-domain.com' in referrer:
+            return redirect(referrer)
+        else:
+            return redirect('dashboard')
+    
+    return redirect('dashboard')
 
 @login_required
 def mark_task_undone(request, task_id):
-    """Mark a task as undone via AJAX"""
+    """Mark a task as undone"""
     if request.method == 'POST':
         task = get_object_or_404(Task, id=task_id, user=request.user)
         task.status = 'todo'
         task.save()
-        return JsonResponse({
-            'success': True,
-            'message': f'Task "{task.title}" marked as todo!',
-            'task_id': task.id,
-            'status': 'todo'
-        })
-    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+        messages.success(request, f'Task "{task.title}" marked as todo!')
+        
+        # Redirect back to the referring page or dashboard
+        referrer = request.META.get('HTTP_REFERER')
+        if referrer and 'localhost' in referrer or '127.0.0.1' in referrer or 'your-domain.com' in referrer:
+            return redirect(referrer)
+        else:
+            return redirect('dashboard')
+    
+    return redirect('dashboard')
