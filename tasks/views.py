@@ -426,7 +426,8 @@ def regenerate_calendar(request):
                 score += 5  # Default duration score
             
             # Add dependency factor (tasks with more dependencies get higher priority)
-            score -= len(task_dependencies[task.id]) * 5
+            # But don't penalize too much - just a small boost
+            score -= len(task_dependencies[task.id]) * 2
             
             task.optimization_score = score
         
@@ -435,7 +436,7 @@ def regenerate_calendar(request):
             task = task_lookup[task_id]
             # Primary sort by dependency order
             dep_order = sorted_task_ids.index(task_id)
-            # Secondary sort by optimization score
+            # Secondary sort by optimization score (lower score = higher priority)
             return (dep_order, task.optimization_score)
         
         # Sort tasks respecting dependencies
@@ -461,10 +462,12 @@ def regenerate_calendar(request):
         # If current time is before work start, use work start
         if current_time < work_start:
             current_time = work_start
+            current_datetime = datetime.combine(current_date, current_time)
         # If current time is after work end, start from next day
         elif current_time >= work_end:
             current_date += timedelta(days=1)
             current_time = work_start
+            current_datetime = datetime.combine(current_date, current_time)
         
         # Track daily usage to avoid overloading
         daily_usage = {}
@@ -513,21 +516,14 @@ def regenerate_calendar(request):
                         current_date += timedelta(days=1)
                         current_time = work_start
                         current_datetime = datetime.combine(current_date, current_time)
+                # Note: We don't reset current_datetime for tasks without dependencies
+                # They will continue from where the last task left off
+                # But we need to ensure current_datetime is properly set
                 else:
-                    # No dependencies, use the current datetime from the outer scope
-                    current_datetime = timezone.now()
+                    # For tasks without dependencies, use the current_datetime from the outer scope
+                    # which should be maintained from the previous task
                     current_date = current_datetime.date()
                     current_time = current_datetime.time()
-                    
-                    # If current time is before work start, use work start
-                    if current_time < work_start:
-                        current_time = work_start
-                        current_datetime = datetime.combine(current_date, current_time)
-                    # If current time is after work end, start from next day
-                    elif current_time >= work_end:
-                        current_date += timedelta(days=1)
-                        current_time = work_start
-                        current_datetime = datetime.combine(current_date, current_time)
                 
                 # Find available slot for this task
                 scheduled = False
