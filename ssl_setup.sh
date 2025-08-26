@@ -60,3 +60,4 @@ echo "🎉 SSL setup complete!"
 echo "📧 Certificate notifications will be sent to: baki1812@gmail.com"
 echo "🔄 Certificates will auto-renew twice daily"
 echo "🌐 Your app is now accessible at: https://todo.emikon.rs"
+

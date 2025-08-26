@@ -3,11 +3,6 @@ services:
     build: .
     command: >
       sh -c "
-        if [ -f /app/backup/db.sqlite3.backup ]; then
-          echo 'Restoring database from backup...'
-          cp /app/backup/db.sqlite3.backup /app/db.sqlite3
-          chown appuser:appuser /app/db.sqlite3
-        fi &&
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
         gunicorn --bind 0.0.0.0:8000 --workers 3 solo_todo.wsgi:application
@@ -17,7 +12,6 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - sqlite_data:/app
-      - ./backup:/app/backup:ro
     ports:
       - "8001:8000"
     environment:

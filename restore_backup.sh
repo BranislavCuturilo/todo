@@ -36,3 +36,4 @@ echo "📊 Checking application status..."
 docker-compose ps
 
 echo "🎉 Done!"
+

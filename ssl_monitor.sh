@@ -50,3 +50,4 @@ else
 fi
 
 echo "📧 SSL notifications sent to: baki1812@gmail.com"
+
