@@ -20,11 +20,13 @@ from .models import Task, Project, Tag, TaskRelationship, FocusSession, Event, T
 from .forms import TaskForm, ProjectForm, TaskRelationshipForm, EventForm, TimeSlotForm, UserPreferencesForm, SketchForm
 from .utils import parse_quick_add
 
-@csrf_exempt
 class CustomLoginView(FormView):
     template_name = 'auth/login.html'
     form_class = AuthenticationForm
     success_url = reverse_lazy('dashboard')
+    
+    def dispatch(self, request, *args, **kwargs):
+        return csrf_exempt(super().dispatch)(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
         print(f"POST request received: {request.POST}")
