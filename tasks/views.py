@@ -25,9 +25,6 @@ class CustomLoginView(FormView):
     form_class = AuthenticationForm
     success_url = reverse_lazy('dashboard')
     
-    def dispatch(self, request, *args, **kwargs):
-        return csrf_exempt(super().dispatch)(request, *args, **kwargs)
-    
     def post(self, request, *args, **kwargs):
         print(f"POST request received: {request.POST}")
         return super().post(request, *args, **kwargs)
@@ -45,7 +42,6 @@ class CustomLoginView(FormView):
             messages.error(self.request, 'Invalid username or password.')
             return self.form_invalid(form)
 
-@csrf_exempt
 def register(request):
     """User registration view"""
     if request.method == 'POST':
