@@ -165,6 +165,14 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 # CSRF settings
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    'http://todo.emikon.rs',
+    'https://todo.emikon.rs',
+    'http://www.todo.emikon.rs',
+    'https://www.todo.emikon.rs',
+    'http://185.119.90.175',
+    'https://185.119.90.175',
+]
 
 # Create logs directory if it doesn't exist
 import os
