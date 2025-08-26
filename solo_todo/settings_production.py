@@ -182,86 +182,35 @@ CSRF_TRUSTED_ORIGINS = [
     'https://185.119.90.175:8001',
 ]
 
-# Create logs directory if it doesn't exist
-import os
-logs_dir = BASE_DIR / 'logs'
-try:
-    logs_dir.mkdir(exist_ok=True)
-except PermissionError:
-    # If we can't create logs directory, use console logging only
-    pass
-
-# Logging configuration
-try:
-    # Try to use file logging
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'verbose': {
-                'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-                'style': '{',
-            },
-            'simple': {
-                'format': '{levelname} {message}',
-                'style': '{',
-            },
+# Logging configuration - console only
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
         },
-        'handlers': {
-            'file': {
-                'level': 'INFO',
-                'class': 'logging.FileHandler',
-                'filename': logs_dir / 'django.log',
-                'formatter': 'verbose',
-            },
-            'console': {
-                'level': 'INFO',
-                'class': 'logging.StreamHandler',
-                'formatter': 'simple',
-            },
-        },
-        'root': {
-            'handlers': ['console', 'file'],
+    },
+    'handlers': {
+        'console': {
             'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
         },
-        'loggers': {
-            'django': {
-                'handlers': ['console', 'file'],
-                'level': 'INFO',
-                'propagate': False,
-            },
-        },
-    }
-except:
-    # Fallback to console logging only
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'simple': {
-                'format': '{levelname} {message}',
-                'style': '{',
-            },
-        },
-        'handlers': {
-            'console': {
-                'level': 'INFO',
-                'class': 'logging.StreamHandler',
-                'formatter': 'simple',
-            },
-        },
-        'root': {
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': False,
         },
-        'loggers': {
-            'django': {
-                'handlers': ['console'],
-                'level': 'INFO',
-                'propagate': False,
-            },
-        },
-    }
+    },
+}
 
 # Email configuration (optional)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
