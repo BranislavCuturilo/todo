@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-yx))8n8pg--6wxnv-^4+nb5q#txox1tsi^3!)2ke=$wxqyf2@5')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)  # Privremeno True za debug
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
@@ -151,6 +151,10 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Proxy settings for Nginx
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # HTTPS settings (uncomment when SSL is configured)
 # SECURE_SSL_REDIRECT = True
