@@ -20,6 +20,7 @@ from .models import Task, Project, Tag, TaskRelationship, FocusSession, Event, T
 from .forms import TaskForm, ProjectForm, TaskRelationshipForm, EventForm, TimeSlotForm, UserPreferencesForm, SketchForm
 from .utils import parse_quick_add
 
+@csrf_exempt
 class CustomLoginView(FormView):
     template_name = 'auth/login.html'
     form_class = AuthenticationForm
@@ -42,6 +43,7 @@ class CustomLoginView(FormView):
             messages.error(self.request, 'Invalid username or password.')
             return self.form_invalid(form)
 
+@csrf_exempt
 def register(request):
     """User registration view"""
     if request.method == 'POST':
